@@ -1,0 +1,52 @@
+{
+	"id": 1,
+	"title": "Двор Замка",
+	"start": "/castle/yard",
+	"spells": [
+		"pwd",
+		"ls",
+		"cd"
+	],
+	"goal": [
+		{
+			"cwd": "/castle/tower"
+		}
+	],
+	"find": {
+		"item": "spellbook",
+		"speaker": "tanenbum",
+		"spells": [
+			"help"
+		],
+		"text": "Заклинания удобнее не только запоминать, но и записывать. Держи Книгу заклинаний: всё, что выучишь, будет в ней. Открыть её можно заклинанием help."
+	},
+	"world": {
+		"castle": {
+			"title": "Замок",
+			"children": {
+				"yard": {
+					"title": "Двор Замка",
+					"children": {
+						"stable": {
+							"title": "Конюшня",
+							"children": {}
+						},
+						"garden": {
+							"title": "Сад",
+							"children": {}
+						}
+					}
+				},
+				"tower": {
+					"title": "Башня Таненбума",
+					"children": {}
+				},
+				"hall": {
+					"title": "Большой зал",
+					"locked": "Зал пока закрыт. Ты попадёшь туда в конце обучения.",
+					"children": {}
+				}
+			}
+		}
+	}
+}
