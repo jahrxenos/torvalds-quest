@@ -18,7 +18,7 @@
 
 - Движок: [Godot 4](https://godotengine.org/) (GDScript)
 - Графика: пиксель-арт
-- Сборки: Windows (.exe) и HTML5 (GitHub Pages)
+- Сборки: HTML5 (GitHub Pages) и Linux x86_64 (проверено на Debian)
 
 ## Структура репозитория
 
