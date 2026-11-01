@@ -1,0 +1,3 @@
+narrator.png — эмодзи «свиток» (U+1F4DC) из Twemoji, уменьшено до 16×16.
+Авторы: Twitter, Inc. и другие участники проекта Twemoji (https://github.com/jdecked/twemoji).
+Лицензия: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).

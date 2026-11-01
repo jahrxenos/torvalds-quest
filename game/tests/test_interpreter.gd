@@ -26,6 +26,7 @@ func _init() -> void:
 	test_level_names()
 	test_spells_and_texts()
 	test_tavern_narration()
+	test_wrap()
 	print("Тесты: пройдено %d, провалено %d" % [passed, failed])
 	quit(1 if failed else 0)
 
@@ -154,3 +155,8 @@ func test_tavern_narration() -> void:
 	check(said(it.execute("mount cart")) == "Торвальд открыл повозку гостя.", "mount cart")
 	check(said(it.execute("mv cart/apples storage")) == "Торвальд перенёс предмет (яблоки) в кладовую.", "mv: рассказчик")
 	check(said(it.execute("cp cart/map storage")) == "Торвальд скопировал предмет (карта Леса) в кладовую.", "cp: рассказчик")
+
+
+func test_wrap() -> void:
+	var lines = preload("res://scripts/ui/log_panel.gd").wrap_words("произнеси заклинание cd ..", 22)
+	check(Array(lines) == ["произнеси заклинание", "cd .."], "«cd ..» не разрывается при переносе: %s" % [lines])

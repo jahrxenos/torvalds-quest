@@ -1,0 +1,6 @@
+{
+	"_note": "Говорящие в панели диалогов: имя, значок (лист тайлов и номер тайла или отдельная картинка) и цвет текста.",
+	"narrator": {"name": "", "icon": "res://assets/icons/narrator.png", "color": "#a8a8a8"},
+	"tanenbum": {"name": "Таненбум", "sheet": "res://assets/tiny-dungeon/tilemap_packed.png", "tile": 84, "color": "#f0e68c"},
+	"torvald": {"name": "Торвальд", "sheet": "res://assets/tiny-dungeon/tilemap_packed.png", "tile": 85, "color": "#e4e4e4"}
+}

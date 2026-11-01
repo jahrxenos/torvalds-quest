@@ -36,4 +36,4 @@ docs/   — пояснительная записка, дизайн-докуме
 ## Авторы
 
 - Разработка, геймдизайн, документация — [@jahrxenos](https://github.com/jahrxenos)
-- Пиксельная графика — наборы Kenney (www.kenney.nl) и Clint Bellanger, лицензия CC0; подробнее в [art/README.md](art/README.md)
+- Пиксельная графика — наборы Kenney (www.kenney.nl) и Clint Bellanger, лицензия CC0; шрифт GNU Unifont (SIL OFL 1.1); значок «свиток» из Twemoji (CC BY 4.0). Подробнее в [art/README.md](art/README.md)
