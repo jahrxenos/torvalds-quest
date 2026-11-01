@@ -13,6 +13,11 @@ var text: String = ""
 var executable: bool = false
 ## Непустая строка — место закрыто, это сообщение для игрока.
 var locked: String = ""
+## Формы для рассказчика: «куда» (в конюшню) и «где» (в конюшне).
+var to: String = ""
+var at: String = ""
+## Пометка в выводе ls, например «закрыт» или «заросла».
+var mark: String = ""
 ## Дочерние узлы: магическое имя -> KNode.
 var children: Dictionary = {}
 
@@ -57,6 +62,9 @@ func duplicate_node() -> KNode:
 	copy.text = text
 	copy.executable = executable
 	copy.locked = locked
+	copy.to = to
+	copy.at = at
+	copy.mark = mark
 	for child: KNode in children.values():
 		copy.add_child(child.duplicate_node())
 	return copy

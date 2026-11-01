@@ -29,6 +29,9 @@ var mounted: Dictionary = {}
 var goal: Array = []
 ## Находка уровня: {"item", "speaker", "text", "spells"}.
 var find: Dictionary = {}
+## Подсказки этапов: [{"until": условие, "hint": фраза, "answer": заклинание}].
+## Действует первая подсказка, чьё условие ещё не выполнено.
+var hints: Array = []
 ## Что игрок уже сделал: абсолютные пути прочитанных предметов и прочитанных вслух свитков.
 var read_paths: Dictionary = {}
 var ran_paths: Dictionary = {}
@@ -51,6 +54,7 @@ static func from_dict(data: Dictionary) -> Kingdom:
 	k.fstab = data.get("fstab", {})
 	k.goal = data.get("goal", [])
 	k.find = data.get("find", {})
+	k.hints = data.get("hints", [])
 	var start := k.resolve(data.get("start", "/"))
 	if start and start.is_dir:
 		k.cwd = start
@@ -74,6 +78,9 @@ static func _build(node_name: String, d: Dictionary) -> KNode:
 	node.text = d.get("text", "")
 	node.executable = d.get("exec", false)
 	node.locked = d.get("locked", "")
+	node.to = d.get("to", "")
+	node.at = d.get("at", "")
+	node.mark = d.get("mark", "")
 	var kids: Dictionary = d.get("children", {})
 	for child_name: String in kids:
 		node.add_child(_build(child_name, kids[child_name]))
@@ -318,3 +325,11 @@ func glob(pattern: String) -> Array[String]:
 		if child_name.match(mask):
 			result.append(prefix + child_name)
 	return result
+
+
+## Подсказка текущего этапа уровня или пустой словарь.
+func current_hint() -> Dictionary:
+	for h: Dictionary in hints:
+		if not h.has("until") or not _condition_met(h["until"]):
+			return h
+	return {}

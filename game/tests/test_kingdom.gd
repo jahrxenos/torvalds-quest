@@ -43,7 +43,7 @@ func test_level1() -> void:
 	check(names(k) == ["hall", "tower", "yard"], "ls в Замке")
 	check(k.cd("hall") == E.LOCKED and k.pwd() == "/castle", "Большой зал закрыт")
 	check(k.cd("tower") == E.OK and k.pwd() == "/castle/tower", "cd tower")
-	check(k.resolve("/castle/tower").title == "Башня Таненбума", "русское название")
+	check(k.resolve("/castle/tower").title == "башня Таненбума", "русское название")
 
 
 func test_paths() -> void:
