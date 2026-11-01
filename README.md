@@ -36,4 +36,4 @@ docs/   — пояснительная записка, дизайн-докуме
 ## Авторы
 
 - Разработка, геймдизайн, документация — [@jahrxenos](https://github.com/jahrxenos)
-- Пиксельная графика — _будет добавлено_
+- Пиксельная графика — наборы Kenney (www.kenney.nl) и Clint Bellanger, лицензия CC0; подробнее в [art/README.md](art/README.md)
