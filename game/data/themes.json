@@ -95,6 +95,33 @@
 				{"tile": "f:85", "title": "бочка"}
 			]
 		},
+		"storage": {
+			"floor": ["d:48", "d:48", "d:49"], "wall": "t:73", "door": "t:86", "locked": "t:85",
+			"decor_fill": true,
+			"decor": [
+				{"tile": "f:35", "title": "ящик с кукурузой"},
+				{"tile": "f:71", "title": "ящик с пшеницей"},
+				{"tile": "f:97", "title": "тюк сена"},
+				{"tile": "d:89", "title": "сундук"},
+				{"tile": "f:85", "title": "бочка"},
+				{"tile": "f:74", "title": "мешок с мукой"},
+				{"tile": "f:23", "title": "ящик с репой"},
+				{"tile": "f:11", "title": "ящик с морковкой"},
+				{"tile": "f:59", "title": "ящик с капустой"},
+				{"tile": "t:130", "title": "бочонок"}
+			]
+		},
+		"kitchen": {
+			"floor": ["d:48", "d:48", "d:49"], "wall": "t:73", "door": "t:86", "locked": "t:85",
+			"decor": [
+				{"tile": "d:72", "title": "стол"},
+				{"tile": "d:73", "title": "табурет"},
+				{"tile": "f:73", "title": "ведро с водой"},
+				{"tile": "f:44", "title": "помидор"},
+				{"tile": "f:125", "title": "свежая булочка"},
+				{"tile": "f:85", "title": "бочка"}
+			]
+		},
 		"garden": {
 			"floor": ["t:0", "t:1", "t:1", "t:2"], "wall": "f:39", "door": "t:25", "locked": "t:5",
 			"decor": [
@@ -155,7 +182,10 @@
 	"npcs": {
 		"tanenbum": "d:84",
 		"martha": "d:100",
-		"smith": "d:86"
+		"smith": "d:86",
+		"innkeeper": "d:88",
+		"merchant": "d:112",
+		"cook": "d:99"
 	},
 	"hero": "d:85"
 }

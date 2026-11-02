@@ -28,6 +28,7 @@ func _init() -> void:
 	test_tavern_narration()
 	test_wrap()
 	test_level2()
+	test_level3()
 	print("Тесты: пройдено %d, провалено %d" % [passed, failed])
 	quit(1 if failed else 0)
 
@@ -192,3 +193,27 @@ func test_level2() -> void:
 	it.trigger = "note"
 	r = it.execute("cat letter")
 	check(r["output"].size() == 4 and r["goal_met"], "письмо прочитано, цель уровня 2")
+
+
+func test_level3() -> void:
+	var k = KingdomScript.load_level("res://levels/level3.json")
+	var p = ProgressScript.new()
+	p.learn(["pwd", "ls", "cd", "help", "cat", "mount", "mv", "cp"])
+	var it = InterpreterScript.new(k, p)
+	it.trigger = "note"
+	check(it.execute("cat book")["output"][1].contains("cart"), "книга постояльцев")
+	it.trigger = "cart"
+	check(it.execute("ls cart")["output"].is_empty(), "повозка пуста до mount")
+	check(said(it.execute("mount cart")) == "Торвальд открыл повозку гостя.", "mount cart")
+	it.execute("mv cart/apples storage")
+	it.execute("mv cart/cheese kitchen")
+	it.execute("mv cart/map storage")
+	var warn = [{"missing": "/village/tavern/cart/map"}, {"mounted": "/village/tavern/cart"}]
+	check(k.conditions_met(warn), "ловушка: карта унесена, предупреждение сработает")
+	for i in 3:
+		it.execute("mv nothing storage")
+	check(said(it.execute("mv nothing storage")).ends_with("mv storage/map cart"), "подсказка вернуть карту")
+	it.execute("mv storage/map cart")
+	check(not k.conditions_met(warn), "карта вернулась")
+	var r = it.execute("cp cart/map storage")
+	check(said(r) == "Торвальд скопировал предмет (карта Леса) в кладовую." and r["goal_met"], "копия карты, цель уровня 3")

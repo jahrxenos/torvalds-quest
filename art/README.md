@@ -29,3 +29,4 @@
 |---|---|---|---|
 | GNU Unifont 18.0.01 | Roman Czyborra, Paul Hardy и участники проекта | SIL OFL 1.1 | `game/assets/fonts/unifont.otf`, лицензия рядом |
 | Значок рассказчика «свиток» (эмодзи U+1F4DC) | Twemoji (Twitter, Inc. и участники проекта) | CC BY 4.0 | `game/assets/icons/narrator.png` |
+| Книга постояльцев (эмодзи U+1F4D6) | Twemoji (Twitter, Inc. и участники проекта) | CC BY 4.0 | `game/assets/icons/book.png` |

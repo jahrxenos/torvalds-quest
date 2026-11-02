@@ -30,7 +30,7 @@
 		"speaker": "martha",
 		"text": "Вот и письмо для Таненбума. Спасибо, что зашёл, Торвальд!"
 	},
-	"next": "",
+	"next": "res://levels/level3.json",
 	"world": {
 		"village": {
 			"title": "Деревня",

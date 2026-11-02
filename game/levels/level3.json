@@ -1,0 +1,93 @@
+{
+	"id": 3,
+	"title": "Таверна",
+	"start": "/village/tavern",
+	"spells": ["mount", "mv", "cp"],
+	"splash": {
+		"text": "На краю Деревни стоит Таверна. Сюда приезжают путники и купцы со всего королевства Линукс, а трактирщик записывает каждого гостя в книгу постояльцев.\n\nСегодня Торвальд научится открывать повозки гостей, переносить и копировать вещи."
+	},
+	"intro": [
+		{"speaker": "narrator", "text": "Утро третьего дня. В Таверну приехал купец Борис."},
+		{"speaker": "innkeeper", "text": "Торвальд, выручай! Повозку купца надо разгрузить."},
+		{"speaker": "innkeeper", "text": "Яблоки неси в кладовую, сыр на кухню. А с карты Леса сделай копию для кладовой."},
+		{"speaker": "tanenbum", "text": "Сначала загляни в книгу постояльцев. Повозка стоит рядом с ней."}
+	],
+	"outro": [
+		{"speaker": "tanenbum", "text": "Молодец! Завтра отправимся в Лес по карте трактирщика."}
+	],
+	"result": "Торвальд получил копию карты Леса и выучил заклинания mount, mv и cp.",
+	"next_goal": "Теперь Торвальду нужно пройти по карте через Лес.",
+	"goal": [
+		{"exists": "/village/tavern/storage/apples"},
+		{"exists": "/village/tavern/kitchen/cheese"},
+		{"exists": "/village/tavern/storage/map"},
+		{"exists": "/village/tavern/cart/map"}
+	],
+	"warnings": [
+		{
+			"when": [{"missing": "/village/tavern/cart/map"}, {"mounted": "/village/tavern/cart"}],
+			"speaker": "merchant",
+			"text": "Без карты я не уеду! Верни её заклинанием mv storage/map cart"
+		}
+	],
+	"hints": [
+		{"until": {"read": "/village/tavern/book"}, "at": "/village/tavern", "hint": "Сначала загляни в книгу постояльцев.", "answer": "cat book"},
+		{"until": {"mounted": "/village/tavern/cart"}, "at": "/village/tavern", "hint": "Купец записан в книге. Подойди к повозке и открой её.", "answer": "mount cart"},
+		{"until": {"exists": "/village/tavern/storage/apples"}, "at": "/village/tavern", "hint": "Яблоки нужно перенести в кладовую.", "answer": "mv cart/apples storage"},
+		{"until": {"exists": "/village/tavern/kitchen/cheese"}, "at": "/village/tavern", "hint": "Сыр нужно перенести на кухню.", "answer": "mv cart/cheese kitchen"},
+		{"until": {"exists": "/village/tavern/cart/map"}, "at": "/village/tavern", "hint": "Купец не уедет без карты. Верни её в повозку.", "answer": "mv storage/map cart"},
+		{"until": {"exists": "/village/tavern/storage/map"}, "at": "/village/tavern", "hint": "Карта нужна и купцу, и Таверне. Сделай копию.", "answer": "cp cart/map storage"}
+	],
+	"find": {
+		"item": "map",
+		"speaker": "innkeeper",
+		"text": "Спасибо, Торвальд! Держи копию карты Леса, пригодится."
+	},
+	"next": "",
+	"fstab": {
+		"/village/tavern/cart": {
+			"apples": {"title": "яблоки", "sprite": "f:47", "trigger": "item", "text": "Спелые красные яблоки."},
+			"cheese": {"title": "сыр", "sprite": "f:96", "trigger": "item", "text": "Круглая головка сыра."},
+			"map": {"title": "карта Леса", "sprite": "d:66", "text": "Тропа на поляну заросла. Открыть её поможет свиток."}
+		}
+	},
+	"world": {
+		"village": {
+			"title": "Деревня",
+			"to": "в Деревню",
+			"at": "в Деревне",
+			"theme": "village",
+			"children": {
+				"tavern": {
+					"title": "Таверна",
+					"to": "в Таверну",
+					"at": "в Таверне",
+					"theme": "tavern",
+					"npcs": [
+						{"id": "innkeeper", "name": "трактирщик", "lines": [
+							"Яблоки неси в кладовую, сыр на кухню.",
+							"А с карты Леса сделай копию, оригинал купцу нужен самому."
+						]},
+						{"id": "merchant", "name": "купец Борис", "lines": [
+							"Здравствуй! Я записан в книге постояльцев, моя повозка cart.",
+							"Карту Леса я заберу с собой, без неё мне домой не доехать."
+						]}
+					],
+					"children": {
+						"book": {"title": "книга постояльцев", "sprite": "res://assets/icons/book.png", "text": "Книга постояльцев\nКупец Борис. Повозка cart.\nПривёз яблоки, сыр и карту Леса."},
+						"cart": {"title": "повозка купца", "to": "в повозку", "at": "в повозке", "trigger": "cart", "children": {}},
+						"storage": {"title": "кладовая", "to": "в кладовую", "at": "в кладовой", "theme": "storage", "children": {}},
+						"kitchen": {"title": "кухня", "to": "на кухню", "at": "на кухне", "theme": "kitchen", "children": {},
+							"npcs": [
+								{"id": "cook", "name": "повариха", "lines": [
+									"Здравствуй, Торвальд! Сыр положи сюда, на кухню.",
+									"Из этого сыра я испеку для гостей большой пирог.",
+									"Заходи вечером, угощу тебя пирогом!"
+								]}
+							]}
+					}
+				}
+			}
+		}
+	}
+}

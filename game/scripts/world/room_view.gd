@@ -152,9 +152,19 @@ func _place_children(theme: Dictionary) -> void:
 
 func _place_npcs() -> void:
 	var npcs: Array = node.data.get("npcs", [])
+	# Клетки под дверями и рядом с ними не занимаем, чтобы персонаж не загородил вход.
+	var near_doors := {}
+	for t in triggers:
+		for c in t["cells"]:
+			for dx in [-1, 0, 1]:
+				near_doors[c + Vector2i(dx, 0)] = true
+	var col := COLS - 4
 	for i in npcs.size():
 		var npc: Dictionary = npcs[i]
-		var cell := Vector2i(COLS - 4 - i * 3, 1)
+		while col > 2 and near_doors.has(Vector2i(col, 1)):
+			col -= 1
+		var cell := Vector2i(col, 1)
+		col -= 3
 		_put(_themes["npcs"].get(npc["id"], _themes["objects"]["item"]), cell)
 		_blocked[cell] = true
 		var cells: Array[Vector2i] = [cell + Vector2i.DOWN, cell + Vector2i.LEFT, cell + Vector2i.RIGHT]
@@ -189,10 +199,17 @@ func _place_decor(theme: Dictionary, rng: RandomNumberGenerator) -> void:
 			shuffled[j] = tmp
 		for i in mini(count, shuffled.size()):
 			chosen.append(shuffled[i])
+		# decor_fill: заставить все свободные клетки верхнего и нижнего рядов (склад, кладовая);
+		# сначала каждый предмет по разу, дальше с повторами.
+		if theme.get("decor_fill", false):
+			while chosen.size() < free.size():
+				chosen.append(pool[rng.randi() % pool.size()])
+	if theme.get("decor_fill", false):
+		free.sort()  # по порядку, чтобы ряды заполнялись ровно
 	for d: Dictionary in chosen:
 		if free.is_empty():
 			break
-		var cell: Vector2i = free.pop_at(rng.randi() % free.size())
+		var cell: Vector2i = free.pop_front() if theme.get("decor_fill", false) else free.pop_at(rng.randi() % free.size())
 		_put(d["tile"], cell)
 		_blocked[cell] = true
 		var cells: Array[Vector2i] = [cell + Vector2i.UP, cell + Vector2i.DOWN, cell + Vector2i.LEFT, cell + Vector2i.RIGHT]
@@ -233,7 +250,10 @@ func _put(tile_ref: String, cell: Vector2i) -> TextureRect:
 	return r
 
 
-static func tile(tile_ref: String) -> AtlasTexture:
+## Тайл по ссылке «лист:номер» или отдельная картинка 16×16 по пути res://...
+static func tile(tile_ref: String) -> Texture2D:
+	if tile_ref.begins_with("res://"):
+		return load(tile_ref)
 	if _themes.is_empty():
 		_themes = JSON.parse_string(FileAccess.get_file_as_string("res://data/themes.json"))
 	var parts := tile_ref.split(":")

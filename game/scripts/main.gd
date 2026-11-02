@@ -24,6 +24,8 @@ var show_story := true
 var pending_epilogue := false
 ## Уровень пройден: после последней реплики по Enter — следующий уровень.
 var pending_next := ""
+## Какие предупреждения уровня уже сказаны.
+var warned: Dictionary = {}
 ## Очередь реплик, которые показываются по Enter.
 var queue: Array = []
 var _queue_running := false
@@ -82,6 +84,12 @@ func _ready() -> void:
 		_show_epilogue()
 	elif "--demo=village" in args:
 		_demo(["@door:square", "cd square", "@note", "@enter", "cat sign", "@exit", "cd ..", "@door:bakery", "cd bakery", "@npc", "@enter", "@note", "cat letter"])
+	elif "--demo=tavern" in args:
+		_demo(["@note", "cat book", "@cart", "mount cart", "ls cart", "mv cart/apples storage", "mv cart/map storage", "mv storage/map cart", "cp cart/map storage", "mv cart/cheese kitchen"])
+	elif "--demo=rooms3" in args:
+		_demo(["@cart", "mount cart", "mv cart/apples storage", "cp cart/map storage", "mv cart/cheese kitchen", "@shot:l3_tavern",
+			"@door:storage", "cd storage", "@shot:l3_storage", "@exit", "cd ..", "@door:kitchen", "cd kitchen", "@shot:l3_kitchen",
+			"@exit", "cd ..", "@exit", "cd ..", "@shot:l3_village", "@quit"])
 	elif "--demo=look" in args:
 		_demo(["@door:stable", "@enter", "@exit", "@enter", "@decor", "@enter"])
 	elif "--demo=intro" in args:
@@ -95,6 +103,15 @@ func _demo(lines: Array) -> void:
 		await get_tree().create_timer(1.2).timeout
 		if line == "@enter":
 			_interact()
+			continue
+		if line.begins_with("@shot:"):
+			# Снимок экрана в build/ (рядом с папкой game), после завершения перехода.
+			await get_tree().create_timer(0.6).timeout
+			var path := ProjectSettings.globalize_path("res://").path_join("../build/%s.png" % line.substr(6))
+			get_viewport().get_texture().get_image().save_png(path)
+			continue
+		if line == "@quit":
+			get_tree().quit()
 			continue
 		if line == "@page":
 			_next_page()
@@ -220,6 +237,7 @@ func _start_level(path: String) -> void:
 	progress.learn(level.get("spells", []))
 	interp = Interpreter.new(kingdom, progress)
 	finished = false
+	warned.clear()
 	room.build(kingdom, kingdom.cwd)
 	room.move_child(place_label, -1)
 	room.move_child(fade, -1)
@@ -349,8 +367,21 @@ func _cast(line: String) -> void:
 	if res["open_book"]:
 		room.input_enabled = false
 		book.open(progress.spells, newest_spell)
+	_check_warnings()
 	if res["goal_met"] and not finished:
 		_finish_level()
+
+
+## Предупреждения уровня: {"when": [условия], "speaker", "text"}. Говорится один раз,
+## пока условия выполнены; если ребёнок исправил ошибку и повторил её — скажется снова.
+func _check_warnings() -> void:
+	for w: Dictionary in level.get("warnings", []):
+		var active := kingdom.conditions_met(w.get("when", []))
+		if active and not warned.has(w):
+			warned[w] = true
+			speak(w.get("speaker", Interpreter.TANENBUM), w["text"])
+		elif not active:
+			warned.erase(w)
 
 
 func _finish_level() -> void:

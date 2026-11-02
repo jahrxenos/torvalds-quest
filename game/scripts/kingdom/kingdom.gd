@@ -283,7 +283,8 @@ func is_dark(path: String) -> bool:
 
 ## Условия: {"cwd": путь} — Торвальд стоит здесь; {"read": путь} — предмет прочитан;
 ## {"exists": путь} / {"missing": путь} — предмет есть / его нет; {"ran": путь} — свиток прочитан вслух;
-## {"text": путь, "is": строка} — у предмета такой текст (факелы); {"lit": "шаблон"} — горят все подходящие факелы.
+## {"text": путь, "is": строка} — у предмета такой текст (факелы); {"lit": "шаблон"} — горят все подходящие факелы;
+## {"mounted": путь} — повозка открыта.
 func is_goal_met() -> bool:
 	if goal.is_empty():
 		return false
@@ -304,6 +305,8 @@ func _condition_met(cond: Dictionary) -> bool:
 		return resolve(cond["missing"]) == null
 	if cond.has("ran"):
 		return ran_paths.has(cond["ran"])
+	if cond.has("mounted"):
+		return mounted.has(cond["mounted"])
 	if cond.has("text"):
 		var node := resolve(cond["text"])
 		return node != null and node.text == cond.get("is", "")
@@ -327,6 +330,16 @@ func glob(pattern: String) -> Array[String]:
 		if child_name.match(mask):
 			result.append(prefix + child_name)
 	return result
+
+
+## Выполнены ли все условия списка (пустой список — нет).
+func conditions_met(conds: Array) -> bool:
+	if conds.is_empty():
+		return false
+	for c: Dictionary in conds:
+		if not _condition_met(c):
+			return false
+	return true
 
 
 ## Подсказка текущего этапа уровня или пустой словарь.
