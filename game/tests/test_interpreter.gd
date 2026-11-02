@@ -27,6 +27,7 @@ func _init() -> void:
 	test_spells_and_texts()
 	test_tavern_narration()
 	test_wrap()
+	test_level2()
 	print("Тесты: пройдено %d, провалено %d" % [passed, failed])
 	quit(1 if failed else 0)
 
@@ -160,3 +161,34 @@ func test_tavern_narration() -> void:
 func test_wrap() -> void:
 	var lines = preload("res://scripts/ui/log_panel.gd").wrap_words("произнеси заклинание cd ..", 22)
 	check(Array(lines) == ["произнеси заклинание", "cd .."], "«cd ..» не разрывается при переносе: %s" % [lines])
+
+
+func test_level2() -> void:
+	check(InterpreterScript.route("/village", "/village/square") == "square", "маршрут в дочернее место")
+	check(InterpreterScript.route("/village/square", "/village/mill") == "../mill", "маршрут в соседнее место")
+	check(InterpreterScript.route("/village/square", "/village") == "..", "маршрут наверх")
+	check(InterpreterScript.route("/castle", "/village/mill") == "/village/mill", "маршрут издалека")
+	var k = KingdomScript.load_level("res://levels/level2.json")
+	var p = ProgressScript.new()
+	p.learn(["pwd", "ls", "cd", "help", "cat"])
+	var it = InterpreterScript.new(k, p)
+	it.trigger = "door"
+	for i in 3:
+		it.execute("cat sign")
+	check(said(it.execute("cat sign")).ends_with("Произнеси заклинание cd square"), "подсказка ведёт на площадь")
+	it.execute("cd square")
+	it.trigger = "note"
+	var r = it.execute("cat sign")
+	check(r["output"] == ["Бабушка Марта живёт у мельницы."], "cat sign")
+	for i in 3:
+		r = it.execute("cat nothing")
+	check(said(r).ends_with("Произнеси заклинание cd ../mill"), "следующий этап: на мельницу через ..")
+	it.trigger = "door"
+	it.execute("cd ../mill")
+	it.trigger = "note"
+	check(it.execute("cat note")["output"][0].contains("пекарню"), "записка на мельнице")
+	it.trigger = "door"
+	it.execute("cd ../bakery")
+	it.trigger = "note"
+	r = it.execute("cat letter")
+	check(r["output"].size() == 4 and r["goal_met"], "письмо прочитано, цель уровня 2")

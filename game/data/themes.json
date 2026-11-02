@@ -61,6 +61,40 @@
 				{"tile": "f:85", "title": "бочка"}
 			]
 		},
+		"mill": {
+			"floor": ["d:48", "d:48", "d:49"], "wall": "t:73", "door": "t:86", "locked": "t:85",
+			"decor": [
+				{"tile": "f:74", "title": "мешок с мукой"},
+				{"tile": "f:96", "title": "стог сена"},
+				{"tile": "f:71", "title": "ящик с пшеницей"},
+				{"tile": "f:68", "title": "колосья пшеницы"},
+				{"tile": "f:85", "title": "бочка"},
+				{"tile": "f:72", "title": "ведро"}
+			]
+		},
+		"bakery": {
+			"floor": ["d:48", "d:48", "d:49"], "wall": "t:73", "door": "t:86", "locked": "t:85",
+			"decor": [
+				{"tile": "d:72", "title": "стол"},
+				{"tile": "d:73", "title": "табурет"},
+				{"tile": "f:74", "title": "мешок с мукой"},
+				{"tile": "f:125", "title": "свежая булочка"},
+				{"tile": "f:85", "title": "бочка"},
+				{"tile": "t:107", "title": "корзина"}
+			]
+		},
+		"smithy": {
+			"floor": ["d:48", "d:48", "d:49"], "wall": "d:40", "door": "t:86", "locked": "t:85",
+			"decor": [
+				{"tile": "d:74", "title": "наковальня"},
+				{"tile": "d:117", "title": "кузнечный молот"},
+				{"tile": "d:118", "title": "топор"},
+				{"tile": "d:104", "title": "меч"},
+				{"tile": "d:102", "title": "щит"},
+				{"tile": "f:73", "title": "ведро с водой"},
+				{"tile": "f:85", "title": "бочка"}
+			]
+		},
 		"garden": {
 			"floor": ["t:0", "t:1", "t:1", "t:2"], "wall": "f:39", "door": "t:25", "locked": "t:5",
 			"decor": [
@@ -75,6 +109,8 @@
 		},
 		"village": {
 			"floor": ["t:0", "t:0", "t:1", "t:2"], "wall": "t:73", "door": "t:86", "locked": "t:85",
+			"wall_top": "f:39", "wall_bottom": "f:39", "wall_side": "f:39", "exit": "t:25",
+			"house_left": "t:72", "house_right": "t:75",
 			"decor": [
 				{"tile": "f:96", "title": "стог сена"},
 				{"tile": "f:11", "title": "ящик с морковкой"},
@@ -117,7 +153,9 @@
 		"item": "d:101"
 	},
 	"npcs": {
-		"tanenbum": "d:84"
+		"tanenbum": "d:84",
+		"martha": "d:100",
+		"smith": "d:86"
 	},
 	"hero": "d:85"
 }

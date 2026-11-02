@@ -2,5 +2,7 @@
 	"_note": "Говорящие в панели диалогов: имя, значок (тайл «лист:номер», как в themes.json, или отдельная картинка icon) и цвет текста.",
 	"narrator": {"name": "", "icon": "res://assets/icons/narrator.png", "color": "#a8a8a8"},
 	"tanenbum": {"name": "Таненбум", "tile": "d:84", "color": "#f0e68c"},
-	"torvald": {"name": "Торвальд", "tile": "d:85", "color": "#e4e4e4"}
+	"torvald": {"name": "Торвальд", "tile": "d:85", "color": "#e4e4e4"},
+	"martha": {"name": "Бабушка Марта", "tile": "d:100", "color": "#e4e4e4"},
+	"smith": {"name": "Кузнец", "tile": "d:86", "color": "#e4e4e4"}
 }

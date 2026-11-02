@@ -132,7 +132,26 @@ func _add_stage_hint(res: Dictionary) -> void:
 	if errors_in_row == 2 and h.has("hint"):
 		res["dialog"].append({"speaker": TANENBUM, "text": h["hint"]})
 	elif errors_in_row >= 3 and h.has("answer"):
-		say(res, "hint_answer", {"answer": h["answer"]})
+		say(res, "hint_answer", {"answer": stage_answer(h)})
+
+
+## Готовое заклинание этапа. Если у подсказки задано место (at), а Торвальд не там, сначала ведём его туда.
+func stage_answer(h: Dictionary) -> String:
+	var at: String = h.get("at", "")
+	if at == "" or kingdom.pwd() == at:
+		return h["answer"]
+	return "cd " + route(kingdom.pwd(), at)
+
+
+## Короткий путь для cd: в дочернее место — по имени, в соседнее — через «..», иначе — полный путь.
+static func route(from: String, to: String) -> String:
+	if to.get_base_dir() == from:
+		return to.get_file()
+	if from != "/" and to.get_base_dir() == from.get_base_dir():
+		return "../" + to.get_file()
+	if from.get_base_dir() == to:
+		return ".."
+	return to
 
 
 # --- Разбор строки -----------------------------------------------------------

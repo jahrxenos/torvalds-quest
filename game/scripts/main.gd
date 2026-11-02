@@ -22,6 +22,8 @@ var story_pages: Array = []
 var show_story := true
 ## Финальный уровень пройден: после последней реплики по Enter покажем эпилог.
 var pending_epilogue := false
+## Уровень пройден: после последней реплики по Enter — следующий уровень.
+var pending_next := ""
 ## Очередь реплик, которые показываются по Enter.
 var queue: Array = []
 var _queue_running := false
@@ -59,7 +61,17 @@ func _ready() -> void:
 	show_story = "--demo=splash" in args or not Array(args).any(func(a): return a.begins_with("--demo"))
 	if show_story:
 		show_pages([{"title": Texts.t("prologue_title"), "text": Texts.t("prologue")}])
-	_start_level(LEVEL)
+	# Отладка: --level=2 — начать со второго уровня, как будто первые пройдены.
+	var start := LEVEL
+	for a in args:
+		if a.begins_with("--level="):
+			var n := int(a.substr(8))
+			for i in range(1, n):
+				var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://levels/level%d.json" % i))
+				progress.learn(d.get("spells", []))
+				progress.apply_find(i, d.get("find", {}))
+			start = "res://levels/level%d.json" % n
+	_start_level(start)
 	if "--demo" in args:
 		_demo(["pwd", "ls", "@exit", "cd tower", "cd tower", "cd ..", "ls", "@door:tower", "@enter", "cd tower", "@npc", "@enter", "help"])
 	elif "--demo=stable" in args:
@@ -68,6 +80,8 @@ func _ready() -> void:
 		_demo(["@page"])
 	elif "--demo=epilogue" in args:
 		_show_epilogue()
+	elif "--demo=village" in args:
+		_demo(["@door:square", "cd square", "@note", "@enter", "cat sign", "@exit", "cd ..", "@door:bakery", "cd bakery", "@npc", "@enter", "@note", "cat letter"])
 	elif "--demo=look" in args:
 		_demo(["@door:stable", "@enter", "@exit", "@enter", "@decor", "@enter"])
 	elif "--demo=intro" in args:
@@ -302,6 +316,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					_next_line()
 				elif pending_epilogue:
 					_show_epilogue()
+				elif pending_next != "":
+					_go_next_level()
 				else:
 					_interact()
 			else:
@@ -347,10 +363,25 @@ func _finish_level() -> void:
 	var lines: Array = []
 	if find.has("text"):
 		lines.append({"speaker": find.get("speaker", Interpreter.NARRATOR), "text": find["text"]})
-	lines.append({"speaker": Interpreter.NARRATOR, "text": Texts.t("level_done")})
+	# Итог уровня: что Торвальд получил; если в уровне не задан — общее «Уровень пройден!».
+	lines.append({"speaker": Interpreter.NARRATOR, "text": level.get("result", Texts.t("level_done"))})
 	lines.append_array(level.get("outro", []))
+	if level.has("next_goal"):
+		lines.append({"speaker": Interpreter.NARRATOR, "text": level["next_goal"]})
 	pending_epilogue = level.get("final", false)
+	pending_next = level.get("next", "")
+	if pending_next != "":
+		lines.append({"speaker": Interpreter.NARRATOR, "text": Texts.t("next_level")})
 	say_queue(lines)
+
+
+## Переход на следующий уровень: чистые журнал и терминал, заставка нового уровня.
+func _go_next_level() -> void:
+	var path := pending_next
+	pending_next = ""
+	dialog.clear()
+	terminal.clear()
+	_start_level(path)
 
 
 # --- Комнаты и триггеры ------------------------------------------------------

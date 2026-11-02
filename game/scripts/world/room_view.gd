@@ -54,11 +54,13 @@ func build(p_kingdom: Kingdom, p_node: KNode, back_from: String = "") -> void:
 	rng.seed = hash(kingdom.path_of(node))
 	for y in ROWS:
 		for x in COLS:
-			var wall := x == 0 or y == 0 or x == COLS - 1 or y == ROWS - 1
-			var t: String = theme["wall"] if wall else theme["floor"][rng.randi() % theme["floor"].size()]
-			_put(t, Vector2i(x, y))
-			if wall:
-				_blocked[Vector2i(x, y)] = true
+			var cell := Vector2i(x, y)
+			# Пол под всем: у забора и кустов прозрачный фон.
+			_put(theme["floor"][rng.randi() % theme["floor"].size()], cell)
+			var wall := _wall_tile(theme, cell)
+			if wall != "":
+				_put(wall, cell)
+				_blocked[cell] = true
 	_place_exit(theme)
 	_place_children(theme)
 	_place_npcs()
@@ -73,6 +75,19 @@ func build(p_kingdom: Kingdom, p_node: KNode, back_from: String = "") -> void:
 	hero_cell = _entry_cell(back_from)
 	_hero.position = _cell_pos(hero_cell)
 	_update_trigger()
+
+
+## Тайл стены для клетки по краю ("" — не стена). Стороны можно задать отдельно:
+## wall_top, wall_bottom, wall_side (слева, справа и в углах); иначе везде wall.
+static func _wall_tile(theme: Dictionary, cell: Vector2i) -> String:
+	var side := cell.x == 0 or cell.x == COLS - 1
+	if side:
+		return theme.get("wall_side", theme["wall"])
+	if cell.y == 0:
+		return theme.get("wall_top", theme["wall"])
+	if cell.y == ROWS - 1:
+		return theme.get("wall_bottom", theme["wall"])
+	return ""
 
 
 ## Оформление места: своё поле theme или ближайшего предка; по умолчанию — замок.
@@ -94,7 +109,13 @@ func current_trigger() -> Dictionary:
 func _place_exit(theme: Dictionary) -> void:
 	if node == kingdom.root:
 		return
-	_put(theme["door"], Vector2i(0, EXIT_CELL.y))
+	var exit_cell := Vector2i(0, EXIT_CELL.y)
+	if theme.has("exit"):
+		# Выход-проход (например, тропинка в кустах): убираем стену и рисуем проход.
+		_put(theme["floor"][0], exit_cell)
+		_put(theme["exit"], exit_cell)
+	else:
+		_put(theme["door"], exit_cell)
 	triggers.append({"kind": "exit", "spell": "door", "node": node.parent(), "label": "выход", "cells": [EXIT_CELL], "pos": Vector2i(0, EXIT_CELL.y)})
 
 
@@ -110,6 +131,10 @@ func _place_children(theme: Dictionary) -> void:
 	for i in doors.size():
 		var col := clampi(roundi((i + 1) * float(COLS) / (doors.size() + 1)), 2, COLS - 3)
 		var door := doors[i]
+		if theme.has("house_left"):
+			# Дверь — в фасаде домика: стена слева и справа от неё.
+			_put(theme["house_left"], Vector2i(col - 1, 0))
+			_put(theme["house_right"], Vector2i(col + 1, 0))
 		_put(theme["locked"] if door.locked != "" else theme["door"], Vector2i(col, 0))
 		triggers.append({"kind": "door", "spell": "door", "node": door, "label": door.title, "cells": [Vector2i(col, 1)], "pos": Vector2i(col, 0)})
 	for i in items.size():
