@@ -81,6 +81,8 @@ static func _build(node_name: String, d: Dictionary) -> KNode:
 	node.to = d.get("to", "")
 	node.at = d.get("at", "")
 	node.mark = d.get("mark", "")
+	node.data = d.duplicate()
+	node.data.erase("children")
 	var kids: Dictionary = d.get("children", {})
 	for child_name: String in kids:
 		node.add_child(_build(child_name, kids[child_name]))

@@ -1,0 +1,116 @@
+{
+	"_note": "Оформление комнат по областям. Тайл: «лист:номер», листы — d (Tiny Dungeon), t (Tiny Town), f (Tiny Farm), c (Tiny Creatures). floor — варианты пола вперемешку. decor — случайные предметы и животные области: title — название, say — что говорит по Enter (если не задано, рассказчик называет предмет). Свои предметы месту можно задать в уровне полем decor.",
+	"sheets": {
+		"d": "res://assets/tiny-dungeon/tilemap_packed.png",
+		"t": "res://assets/tiny-town/tilemap_packed.png",
+		"f": "res://assets/tiny-farm/tilemap_packed.png",
+		"c": "res://assets/tiny-creatures/tilemap_packed.png"
+	},
+	"decor_count": [4, 6],
+	"themes": {
+		"castle": {
+			"floor": ["d:48", "d:48", "d:49"], "wall": "d:40", "door": "d:21", "locked": "d:45",
+			"decor": [
+				{"tile": "d:72", "title": "стол"},
+				{"tile": "d:73", "title": "табурет"},
+				{"tile": "d:90", "title": "сундук"},
+				{"tile": "d:91", "title": "окованный сундук"},
+				{"tile": "d:102", "title": "круглый щит"},
+				{"tile": "f:85", "title": "бочка"}
+			]
+		},
+		"tower": {
+			"floor": ["d:48", "d:48", "d:49"], "wall": "d:40", "door": "d:21", "locked": "d:45",
+			"decor": [
+				{"tile": "d:63", "title": "книжная полка"},
+				{"tile": "d:75", "title": "полка со свитками"},
+				{"tile": "d:72", "title": "стол"},
+				{"tile": "d:73", "title": "табурет"},
+				{"tile": "d:114", "title": "склянка с зелёным зельем"},
+				{"tile": "d:115", "title": "склянка с красным зельем"},
+				{"tile": "d:116", "title": "склянка с синим зельем"},
+				{"tile": "d:90", "title": "сундук"}
+			]
+		},
+		"yard": {
+			"floor": ["t:0", "t:0", "t:1", "t:2"], "wall": "d:40", "door": "d:21", "locked": "d:45",
+			"decor": [
+				{"tile": "f:85", "title": "бочка"},
+				{"tile": "t:95", "title": "мишень для стрельбы из лука"},
+				{"tile": "d:74", "title": "наковальня"},
+				{"tile": "t:130", "title": "бочонок"},
+				{"tile": "f:39", "title": "куст"},
+				{"tile": "f:122", "title": "курица", "say": "Ко-ко-ко!"}
+			]
+		},
+		"stable": {
+			"floor": ["t:25", "t:25", "t:40"], "wall": "t:73", "door": "t:86", "locked": "t:85",
+			"decor": [
+				{"tile": "f:96", "title": "стог сена"},
+				{"tile": "f:97", "title": "тюк сена"},
+				{"tile": "f:72", "title": "ведро"},
+				{"tile": "f:73", "title": "ведро с водой"},
+				{"tile": "f:74", "title": "мешок с овсом"},
+				{"tile": "f:85", "title": "бочка"}
+			]
+		},
+		"garden": {
+			"floor": ["t:0", "t:1", "t:1", "t:2"], "wall": "f:39", "door": "t:25", "locked": "t:5",
+			"decor": [
+				{"tile": "f:83", "title": "подсолнух"},
+				{"tile": "f:78", "title": "куст с ягодами"},
+				{"tile": "f:42", "title": "куст с помидорами"},
+				{"tile": "t:94", "title": "улей"},
+				{"tile": "f:11", "title": "ящик с морковкой"},
+				{"tile": "f:59", "title": "ящик с капустой"},
+				{"tile": "t:5", "title": "яблоня"}
+			]
+		},
+		"village": {
+			"floor": ["t:0", "t:0", "t:1", "t:2"], "wall": "t:73", "door": "t:86", "locked": "t:85",
+			"decor": [
+				{"tile": "f:96", "title": "стог сена"},
+				{"tile": "f:11", "title": "ящик с морковкой"},
+				{"tile": "f:85", "title": "бочка"},
+				{"tile": "f:83", "title": "подсолнух"},
+				{"tile": "f:120", "title": "овца", "say": "Бе-е-е!"},
+				{"tile": "f:121", "title": "корова", "say": "Му-у-у!"},
+				{"tile": "f:122", "title": "курица", "say": "Ко-ко-ко!"}
+			]
+		},
+		"tavern": {
+			"floor": ["d:48", "d:48", "d:49"], "wall": "t:73", "door": "t:86", "locked": "t:85",
+			"decor": [
+				{"tile": "f:85", "title": "бочка"},
+				{"tile": "d:72", "title": "стол"},
+				{"tile": "d:73", "title": "табурет"},
+				{"tile": "t:130", "title": "бочонок"},
+				{"tile": "f:47", "title": "ящик с помидорами"},
+				{"tile": "t:107", "title": "мешок"}
+			]
+		},
+		"forest": {
+			"floor": ["t:0", "t:1", "t:1", "t:2"], "wall": "t:16", "door": "t:25", "locked": "t:5",
+			"decor": [
+				{"tile": "t:15", "title": "осенняя ель"},
+				{"tile": "t:28", "title": "ель"},
+				{"tile": "t:29", "title": "мухоморы"},
+				{"tile": "f:39", "title": "куст"},
+				{"tile": "f:78", "title": "куст с ягодами"},
+				{"tile": "c:130", "title": "сова", "say": "Угу! Угу!"},
+				{"tile": "c:162", "title": "олень"}
+			]
+		}
+	},
+	"objects": {
+		"note": "t:83",
+		"scroll": "d:66",
+		"cart": "d:89",
+		"altar": "d:41",
+		"item": "d:101"
+	},
+	"npcs": {
+		"tanenbum": "d:84"
+	},
+	"hero": "d:85"
+}

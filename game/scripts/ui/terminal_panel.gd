@@ -69,6 +69,12 @@ func take_input() -> String:
 	return line
 
 
+func clear() -> void:
+	_history.clear()
+	typed = ""
+	_refresh()
+
+
 func print_line(text: String) -> void:
 	_history.add_row(_colorize(text))
 

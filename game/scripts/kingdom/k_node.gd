@@ -18,6 +18,8 @@ var to: String = ""
 var at: String = ""
 ## Пометка в выводе ls, например «закрыт» или «заросла».
 var mark: String = ""
+## Остальные поля из уровня для оформления: theme, trigger, sprite, npcs.
+var data: Dictionary = {}
 ## Дочерние узлы: магическое имя -> KNode.
 var children: Dictionary = {}
 
@@ -65,6 +67,7 @@ func duplicate_node() -> KNode:
 	copy.to = to
 	copy.at = at
 	copy.mark = mark
+	copy.data = data.duplicate(true)
 	for child: KNode in children.values():
 		copy.add_child(child.duplicate_node())
 	return copy

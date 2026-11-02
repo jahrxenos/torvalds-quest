@@ -1,13 +1,9 @@
-## Игровой экран: сверху поле, под ним панель диалогов, внизу терминал.
-## Временно (до ходьбы, задача #11) Торвальд как будто всегда стоит у двери.
+## Игровой экран: сверху комната, под ним панель диалогов, внизу терминал.
 extends Control
 
 const W := 640
 const H := 360
 const LEVEL := "res://levels/level1.json"
-const DUNGEON := preload("res://assets/tiny-dungeon/tilemap_packed.png")
-const TILE_FLOOR := 48
-const TILE_TORVALD := 85
 const C_BORDER := Color("#808080")
 
 var kingdom: Kingdom
@@ -18,7 +14,15 @@ var speakers: Dictionary
 var dialog: LogPanel
 var terminal: TerminalPanel
 var book: SpellBook
+var room: RoomView
+var menu: PauseMenu
+var level_path := ""
+## Прогресс на момент начала уровня — для «Начать уровень заново».
+var progress_at_start: Dictionary = {}
 var place_label: Label
+var fade: ColorRect
+## Какую реплику персонажа показать следующей.
+var npc_line := 0
 var finished := false
 var newest_spell := ""
 ## Высоты частей экрана зависят от шрифта.
@@ -43,14 +47,28 @@ func _ready() -> void:
 	speakers = JSON.parse_string(FileAccess.get_file_as_string("res://data/speakers.json"))
 	_build_screen()
 	_start_level(LEVEL)
-	if "--demo" in OS.get_cmdline_user_args():
-		_demo(["pwd", "ls", "cd tower", "cd tower", "cd ..", "ls", "cd tower", "help"])
+	var args := OS.get_cmdline_user_args()
+	if "--demo" in args:
+		_demo(["pwd", "ls", "@exit", "cd tower", "cd tower", "cd ..", "ls", "@door:tower", "@enter", "cd tower", "@npc", "@enter", "help"])
+	elif "--demo=stable" in args:
+		_demo(["@decor", "@enter", "@door:stable", "@enter", "cd stable", "@decor", "@enter", "@menu"])
 
 
 ## Отладка: набирает заклинания сама, по букве. Запуск: godot --path game -- --demo
+## Строки с @ — действия: @exit, @door:имя, @npc — встать к триггеру; @enter — нажать Enter.
 func _demo(lines: Array) -> void:
 	for line: String in lines:
 		await get_tree().create_timer(1.2).timeout
+		if line == "@enter":
+			_interact()
+			continue
+		if line == "@menu":
+			_open_menu()
+			continue
+		if line.begins_with("@"):
+			var parts := line.substr(1).split(":")
+			room.stand_at(parts[0], parts[1] if parts.size() > 1 else "")
+			continue
 		for ch in line:
 			terminal.type_char(ch)
 			await get_tree().create_timer(0.05).timeout
@@ -61,29 +79,22 @@ func _demo(lines: Array) -> void:
 # --- Экран -------------------------------------------------------------------
 
 func _build_screen() -> void:
-	var world := Control.new()
-	world.size = Vector2(W, world_h)
-	world.clip_contents = true
-	add_child(world)
-	var floor_rect := TextureRect.new()
-	floor_rect.texture = tile(DUNGEON, TILE_FLOOR)
-	floor_rect.stretch_mode = TextureRect.STRETCH_TILE
-	floor_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	floor_rect.size = Vector2(W / 2, world_h / 2 + 1)
-	floor_rect.scale = Vector2(2, 2)
-	world.add_child(floor_rect)
-	var hero := TextureRect.new()
-	hero.texture = tile(DUNGEON, TILE_TORVALD)
-	hero.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	hero.scale = Vector2(2, 2)
-	hero.position = Vector2(W / 2 - 16, world_h / 2 - 16)
-	world.add_child(hero)
+	room = RoomView.new()
+	room.size = Vector2(W, world_h)
+	room.trigger_changed.connect(_on_trigger_changed)
+	add_child(room)
 	place_label = Label.new()
-	place_label.position = Vector2(6, 4)
+	place_label.position = Vector2(6, 2)
 	place_label.add_theme_color_override("font_color", Color.WHITE)
 	place_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	place_label.add_theme_constant_override("outline_size", 4)
-	world.add_child(place_label)
+	room.add_child(place_label)
+	fade = ColorRect.new()
+	fade.color = Color.BLACK
+	fade.size = room.size
+	fade.modulate.a = 0.0
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	room.add_child(fade)
 
 	_frame(Rect2(0, world_h, W, dialog_h))
 	_frame(Rect2(0, world_h + dialog_h - 1, W, term_h + 1))
@@ -101,6 +112,16 @@ func _build_screen() -> void:
 	book.position = Vector2((W - 600) / 2, 6)
 	add_child(book)
 
+	menu = PauseMenu.new()
+	menu.size = Vector2(260, 150)
+	menu.position = Vector2((W - 260) / 2, (H - 150) / 2)
+	menu.resume.connect(_close_menu)
+	menu.restart.connect(func():
+		_close_menu()
+		_restart_level())
+	menu.quit_game.connect(func(): get_tree().quit())
+	add_child(menu)
+
 
 func _frame(rect: Rect2) -> void:
 	var p := Panel.new()
@@ -114,22 +135,19 @@ func _frame(rect: Rect2) -> void:
 	add_child(p)
 
 
-static func tile(sheet: Texture2D, index: int) -> AtlasTexture:
-	var t := AtlasTexture.new()
-	t.atlas = sheet
-	t.region = Rect2((index % 12) * 16, (index / 12) * 16, 16, 16)
-	return t
-
-
 # --- Уровень -----------------------------------------------------------------
 
 func _start_level(path: String) -> void:
+	level_path = path
+	progress_at_start = progress.to_dict()
 	level = JSON.parse_string(FileAccess.get_file_as_string(path))
 	kingdom = Kingdom.from_dict(level)
 	progress.learn(level.get("spells", []))
 	interp = Interpreter.new(kingdom, progress)
-	interp.trigger = "door"  # временно, до ходьбы (#11)
 	finished = false
+	room.build(kingdom, kingdom.cwd)
+	room.move_child(place_label, -1)
+	room.move_child(fade, -1)
 	_update_place()
 	for line: Dictionary in level.get("intro", []):
 		speak(line["speaker"], line["text"])
@@ -140,16 +158,33 @@ func _update_place() -> void:
 	place_label.text = kingdom.cwd.title
 
 
+## Начать уровень заново: прогресс — как в начале уровня, журнал и терминал чистые.
+func _restart_level() -> void:
+	progress = Progress.from_dict(progress_at_start)
+	dialog.clear()
+	terminal.clear()
+	_start_level(level_path)
+
+
 func speak(speaker_id: String, text: String) -> void:
-	var sp: Dictionary = speakers.get(speaker_id, speakers["narrator"])
-	var shown := text if sp["name"] == "" else "%s: %s" % [sp["name"], text]
-	dialog.add_wrapped(shown, Color(sp["color"]), _icon(sp))
+	speak_as(speakers.get(speaker_id, speakers["narrator"]), text)
 
 
-func _icon(sp: Dictionary) -> Texture2D:
-	if sp.has("icon"):
-		return load(sp["icon"])
-	return tile(load(sp["sheet"]), int(sp["tile"]))
+## sp — говорящий: {"name", "tile" или "icon", "color"}.
+func speak_as(sp: Dictionary, text: String) -> void:
+	var shown := text if sp.get("name", "") == "" else "%s: %s" % [sp["name"], text]
+	var icon: Texture2D = load(sp["icon"]) if sp.has("icon") else RoomView.tile(sp["tile"])
+	dialog.add_wrapped(shown, Color(sp.get("color", "#e4e4e4")), icon)
+
+
+func _open_menu() -> void:
+	room.input_enabled = false
+	menu.open()
+
+
+func _close_menu() -> void:
+	menu.hide()
+	room.input_enabled = true
 
 
 # --- Ввод --------------------------------------------------------------------
@@ -159,35 +194,44 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var key := event as InputEventKey
 	get_viewport().set_input_as_handled()
+	if menu.visible:
+		if key.keycode == KEY_ESCAPE:
+			_close_menu()
+		return
 	if book.visible:
 		if key.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE]:
 			book.hide()
+			room.input_enabled = true
 		return
 	match key.keycode:
 		KEY_ESCAPE:
-			pass  # меню паузы — задача #17
+			_open_menu()
 		KEY_ENTER, KEY_KP_ENTER:
 			if terminal.typed.strip_edges() == "":
-				speak(Interpreter.TANENBUM, Texts.t("action_nothing"))
+				_interact()
 			else:
 				_cast(terminal.take_input())
 		KEY_BACKSPACE:
 			terminal.backspace()
 		KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT:
-			pass  # ходьба — задача #11
+			pass  # ходьбу обрабатывает комната
 		_:
 			if key.unicode >= 32 and not key.ctrl_pressed and not key.alt_pressed:
 				terminal.type_char(char(key.unicode))
 
 
 func _cast(line: String) -> void:
+	var before := kingdom.cwd
 	var res := interp.execute(line)
 	for out: String in res["output"]:
 		terminal.print_line(out)
 	for d: Dictionary in res["dialog"]:
 		speak(d["speaker"], d["text"])
 	_update_place()
+	if kingdom.cwd != before:
+		_transition(before)
 	if res["open_book"]:
+		room.input_enabled = false
 		book.open(progress.spells, newest_spell)
 	if res["goal_met"] and not finished:
 		_finish_level()
@@ -203,3 +247,64 @@ func _finish_level() -> void:
 	if not new_spells.is_empty():
 		newest_spell = new_spells.back()
 	speak(Interpreter.NARRATOR, Texts.t("level_done"))
+
+
+# --- Комнаты и триггеры ------------------------------------------------------
+
+## Переход в другое место: затемнение, новая комната, проявление.
+func _transition(old: KNode) -> void:
+	room.input_enabled = false
+	var tw := create_tween()
+	tw.tween_property(fade, "modulate:a", 1.0, 0.15)
+	await tw.finished
+	var back := old.name if kingdom.cwd == old.parent() else ""
+	room.build(kingdom, kingdom.cwd, back)
+	room.move_child(place_label, -1)
+	room.move_child(fade, -1)
+	tw = create_tween()
+	tw.tween_property(fade, "modulate:a", 0.0, 0.15)
+	await tw.finished
+	room.input_enabled = not book.visible
+
+
+func _on_trigger_changed(t: Dictionary) -> void:
+	interp.trigger = t.get("spell", "")
+	npc_line = 0
+
+
+## Enter на пустой строке: действие у триггера.
+func _interact() -> void:
+	var t := room.current_trigger()
+	if t.is_empty():
+		speak(Interpreter.TANENBUM, Texts.t("action_nothing"))
+		return
+	var n: KNode = t["node"]
+	match t["kind"]:
+		"decor":
+			var d: Dictionary = t["decor"]
+			var title: String = d.get("title", "")
+			if d.has("say"):
+				speak_as({"name": title.left(1).to_upper() + title.substr(1), "tile": d["tile"]}, d["say"])
+			else:
+				speak(Interpreter.NARRATOR, Texts.t("look_decor", {"title": title}))
+		"npc":
+			var npc: Dictionary = t["npc"]
+			var lines: Array = npc.get("lines", [])
+			if not lines.is_empty():
+				speak(npc["id"], lines[npc_line % lines.size()])
+				npc_line += 1
+		"door":
+			if n.locked != "":
+				speak(Interpreter.TANENBUM, n.locked)
+			else:
+				speak(Interpreter.TANENBUM, Texts.t("look_door", {"title": n.title, "name": n.name}))
+		"exit":
+			if n and n.to != "":
+				speak(Interpreter.TANENBUM, Texts.t("look_exit", {"to": n.to}))
+			else:
+				speak(Interpreter.TANENBUM, Texts.t("look_exit_plain"))
+		_:
+			var key: String = "look_" + t["kind"]
+			if not Texts.has(key):
+				key = "look_item"
+			speak(Interpreter.TANENBUM, Texts.t(key, {"title": n.title, "name": n.name}))
