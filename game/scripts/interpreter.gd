@@ -30,6 +30,10 @@ var progress: Progress
 var trigger: String = ""
 ## Ошибок подряд; после удачного заклинания сбрасывается.
 var errors_in_row := 0
+## Строка, которую сейчас выполняет интерпретатор (нужна циклу и условию целиком).
+var current_line := ""
+## Идёт ли выполнение внутри цикла (тогда light не пишет рассказчику про каждый факел).
+var in_loop := false
 
 
 func _init(p_kingdom: Kingdom, p_progress: Progress) -> void:
@@ -86,7 +90,82 @@ func _run(text: String, res: Dictionary) -> bool:
 	var spell: Spell = spells[spell_name]
 	if spell.trigger != "" and trigger != spell.trigger:
 		return say(res, "need_trigger", {"place": Texts.t("trigger_" + spell.trigger)})
-	return spell.run(self, word, words.slice(1), res)
+	kingdom.used[spell_name] = true
+	current_line = text
+	return spell.run(self, word, expand_globs(words.slice(1)), res)
+
+
+## Звёздочка: torch* превращается в список подходящих имён (если ничего не подошло — остаётся как есть).
+func expand_globs(args: Array) -> Array:
+	var result := []
+	for a: String in args:
+		var matches: Array = []
+		if a.contains("*"):
+			matches = kingdom.glob(a)
+		if matches.is_empty():
+			result.append(a)
+		else:
+			result.append_array(matches)
+	return result
+
+
+# --- Цикл и условие ----------------------------------------------------------
+
+## for ПЕРЕМЕННАЯ in СПИСОК; do ТЕЛО; done — тело выполняется для каждого элемента списка,
+## $ПЕРЕМЕННАЯ в теле заменяется элементом.
+func run_for(text: String, res: Dictionary) -> bool:
+	var m := RegEx.create_from_string("^for\\s+([a-z_][a-z0-9_]*)\\s+in\\s+(.+?)\\s*;\\s*do\\s+(.+?)\\s*;\\s*done\\s*$").search(text.strip_edges())
+	if m == null:
+		return say(res, "for_usage")
+	var var_name := m.get_string(1)
+	var items := expand_globs(tokenize(m.get_string(2)))
+	var body := m.get_string(3)
+	var ok := true
+	var was_in_loop := in_loop
+	in_loop = true
+	for item: String in items:
+		var line := body.replace("${%s}" % var_name, item).replace("$" + var_name, item)
+		if not _run(line, res):
+			ok = false
+			break
+	in_loop = was_in_loop
+	if not in_loop and body.contains("light"):
+		_narrate_torches(res)
+	return ok
+
+
+## if КОМАНДА; then ТЕЛО; fi — тело выполняется, только если команда вернула «да».
+func run_if(text: String, res: Dictionary) -> bool:
+	var m := RegEx.create_from_string("^if\\s+(.+?)\\s*;\\s*then\\s+(.+?)\\s*;\\s*fi\\s*$").search(text.strip_edges())
+	if m == null:
+		return say(res, "if_usage")
+	if test(m.get_string(1), res):
+		var ok := _run(m.get_string(2), res)
+		if not in_loop and m.get_string(2).contains("light"):
+			_narrate_torches(res)
+		return ok
+	return true
+
+
+## Проверка для if: dark — темно ли; другие заклинания — удалось ли оно.
+func test(command: String, res: Dictionary) -> bool:
+	var words := tokenize(command)
+	if words.is_empty():
+		return false
+	if words[0] == "dark" and words.size() > 1:
+		kingdom.used["dark"] = true
+		return kingdom.is_dark(words[1])
+	var scratch := {"echo": "", "output": [], "dialog": [], "open_book": false, "goal_met": false}
+	return _run(command, scratch)
+
+
+## Итог для рассказчика после зажигания факелов: сколько горит.
+func _narrate_torches(res: Dictionary) -> void:
+	var torches := kingdom.glob("torch*")
+	if torches.is_empty():
+		return
+	var lit := torches.filter(func(p): return not kingdom.is_dark(p)).size()
+	narrate(res, "torches_lit", {"lit": lit, "all": torches.size()})
 
 
 # --- Для заклинаний ----------------------------------------------------------
@@ -193,7 +272,7 @@ func _closest_spell(word: String) -> String:
 	var best := ""
 	var best_dist := 99
 	for s: String in progress.spells:
-		if s == "./":
+		if s == "./" or s == "*":
 			continue
 		var d := edit_distance(word, s)
 		if d < best_dist:

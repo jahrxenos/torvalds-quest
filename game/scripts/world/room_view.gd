@@ -41,6 +41,17 @@ func _init() -> void:
 
 
 ## Собрать комнату для места p_node. back_from — имя места, из которого Торвальд вернулся наверх.
+## Перерисовать комнату на месте (например, после того как загорелись факелы), Торвальд стоит где стоял.
+func refresh() -> void:
+	var cell := hero_cell
+	var flip := _hero.flip_h if _hero else false
+	build(kingdom, node)
+	hero_cell = cell
+	_hero.position = _cell_pos(cell)
+	_hero.flip_h = flip
+	_update_trigger()
+
+
 func build(p_kingdom: Kingdom, p_node: KNode, back_from: String = "") -> void:
 	kingdom = p_kingdom
 	node = p_node
@@ -125,12 +136,29 @@ func _place_exit(theme: Dictionary) -> void:
 func _place_children(theme: Dictionary) -> void:
 	var doors: Array[KNode] = []
 	var items: Array[KNode] = []
+	var on_wall: Array[KNode] = []
 	for child_name in node.child_names():
 		var child := node.get_child(child_name)
-		if child.is_dir and child.data.get("trigger", "door") == "door":
+		if child.data.get("layout", "") == "wall":
+			on_wall.append(child)
+		elif child.is_dir and child.data.get("trigger", "door") == "door":
 			doors.append(child)
 		else:
 			items.append(child)
+	# Предметы на стене (факелы): равномерно по верхней стене, вид — по состоянию.
+	for i in on_wall.size():
+		var col := 2 + roundi(i * float(COLS - 5) / maxi(1, on_wall.size() - 1))
+		var item := on_wall[i]
+		var kind: String = item.data.get("trigger", "item")
+		var sprite: String
+		if item.text == Kingdom.TORCH_LIT:
+			sprite = _themes["objects"]["torch_lit"]
+		elif item.text == Kingdom.TORCH_DARK:
+			sprite = _themes["objects"]["torch_dark"]
+		else:
+			sprite = item.data.get("sprite", _themes["objects"]["item"])
+		_put(sprite, Vector2i(col, 0))
+		triggers.append({"kind": kind, "spell": kind, "node": item, "label": item.title + " " + item.name, "cells": [Vector2i(col, 1)], "pos": Vector2i(col, 0)})
 	for i in doors.size():
 		var col := clampi(roundi((i + 1) * float(COLS) / (doors.size() + 1)), 2, COLS - 3)
 		var door := doors[i]

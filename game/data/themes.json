@@ -178,6 +178,8 @@
 		"scroll": "d:66",
 		"cart": "d:89",
 		"altar": "d:41",
+		"torch_lit": "c:55",
+		"torch_dark": "c:88",
 		"item": "d:101"
 	},
 	"npcs": {

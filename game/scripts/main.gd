@@ -26,6 +26,8 @@ var pending_epilogue := false
 var pending_next := ""
 ## Какие предупреждения уровня уже сказаны.
 var warned: Dictionary = {}
+## Номер текущего этапа уровня (если у уровня есть phases).
+var phase := 0
 ## Очередь реплик, которые показываются по Enter.
 var queue: Array = []
 var _queue_running := false
@@ -37,7 +39,8 @@ var fade: ColorRect
 ## Какую реплику персонажа показать следующей.
 var npc_line := 0
 var finished := false
-var newest_spell := ""
+## Заклинания, выученные последними: в Книге они подсвечены.
+var newest_spells: Array = []
 ## Высоты частей экрана зависят от шрифта.
 var dialog_h := 0
 var term_h := 0
@@ -49,7 +52,7 @@ func _ready() -> void:
 	if "--selftest" in OS.get_cmdline_user_args():
 		Interpreter.load_spells()
 		print("selftest: заклинаний %d, текст: %s" % [Interpreter.spells.size(), Texts.t("cd_no_arg")])
-		get_tree().quit(0 if Interpreter.spells.size() == 10 else 1)
+		get_tree().quit(0 if Interpreter.spells.size() == 15 else 1)
 		return
 	RenderingServer.set_default_clear_color(Color.BLACK)
 	UiFont.setup()
@@ -93,6 +96,12 @@ func _ready() -> void:
 	elif "--demo=forest" in args:
 		_demo(["@shot:l4_start", "@scroll", "./scroll", "@note", "cat note", "@scroll", "chmod +x scroll", "./scroll",
 			"@shot:l4_open", "@npc", "@enter", "@shot:l4_fireflies", "@quit"])
+	elif "--demo=hall" in args:
+		_demo(["@shot:l5_start", "@altar", "light torch1", "for t in torch*; do light $t; done", "@shot:l5_phase1",
+			"@next", "@next", "@next", "@next", "@shot:l5_draft", "for t in torch*; do if dark $t; then light $t; fi; done",
+			"@shot:l5_done", "@quit"])
+	elif "--demo=book" in args:
+		_demo(["@next", "@next", "@next", "@next", "@shot:book_intro", "help", "@shot:book_open", "@quit"])
 	elif "--demo=look" in args:
 		_demo(["@door:stable", "@enter", "@exit", "@enter", "@decor", "@enter"])
 	elif "--demo=intro" in args:
@@ -237,10 +246,15 @@ func _start_level(path: String) -> void:
 	progress_at_start = progress.to_dict()
 	level = JSON.parse_string(FileAccess.get_file_as_string(path))
 	kingdom = Kingdom.from_dict(level)
+	var level_spells: Array = level.get("spells", []).filter(func(s): return not progress.knows(s))
 	progress.learn(level.get("spells", []))
 	interp = Interpreter.new(kingdom, progress)
 	finished = false
 	warned.clear()
+	phase = 0
+	if level.has("phases"):
+		kingdom.goal = level["phases"][0]["goal"]
+		kingdom.torch_toggle = level["phases"][0].get("toggle", true)
 	room.build(kingdom, kingdom.cwd)
 	room.move_child(place_label, -1)
 	room.move_child(fade, -1)
@@ -248,7 +262,26 @@ func _start_level(path: String) -> void:
 	var splash: Dictionary = level.get("splash", {})
 	if show_story and not splash.is_empty():
 		show_pages([{"title": Texts.t("level_title", {"n": int(level.get("id", 0)), "title": level.get("title", "")}), "text": splash["text"]}])
-	say_queue(level.get("intro", []))
+	var intro: Array = level.get("intro", []).duplicate()
+	if not level_spells.is_empty():
+		newest_spells = level_spells
+		var book_line := _book_line(level_spells)
+		if book_line != "":
+			intro.append({"speaker": Interpreter.NARRATOR, "text": book_line})
+	say_queue(intro)
+
+
+## «Торвальд записал в Книгу заклинаний новое заклинание cat.» Пусто, если Книги ещё нет.
+func _book_line(spell_names: Array) -> String:
+	if not progress.knows("help"):
+		return ""
+	var shown: Array = spell_names.filter(func(s): return Interpreter.spells.has(s))
+	if shown.is_empty():
+		return ""
+	if shown.size() == 1:
+		return Texts.t("book_new_one", {"spells": shown[0]})
+	var list: String = ", ".join(shown.slice(0, -1)) + " и " + str(shown.back())
+	return Texts.t("book_new_many", {"spells": list})
 
 
 ## Реплики по очереди: следующая — по Enter на пустой строке. У незаконченной очереди в конце ▸.
@@ -369,12 +402,32 @@ func _cast(line: String) -> void:
 		_transition(before)
 	if res["open_book"]:
 		room.input_enabled = false
-		book.open(progress.spells, newest_spell)
+		book.open(progress.spells, newest_spells)
 	room.update_barrier()
+	if level.get("live_room", false) and kingdom.cwd == before:
+		room.refresh()  # факелы и другие предметы меняют вид
 	_check_warnings()
 	if res["goal_met"] and not finished:
-		_finish_level()
+		if phase < level.get("phases", []).size() - 1:
+			_next_phase()
+		else:
+			_finish_level()
 
+
+## Этапы уровня (поле phases): [{"goal": [...], "done": [реплики], "set": {путь: текст}}].
+## Цель уровня — цель текущего этапа; когда она выполнена, меняются тексты предметов и начинается следующий этап.
+func _next_phase() -> void:
+	var phases: Array = level["phases"]
+	var done: Dictionary = phases[phase]
+	for path: String in done.get("set", {}):
+		var n := kingdom.resolve(path)
+		if n:
+			n.text = done["set"][path]
+	phase += 1
+	kingdom.goal = phases[phase]["goal"]
+	kingdom.torch_toggle = phases[phase].get("toggle", true)
+	room.refresh()
+	say_queue(done.get("done", []))
 
 ## Предупреждения уровня: {"when": [условия], "speaker", "text"}. Говорится один раз,
 ## пока условия выполнены; если ребёнок исправил ошибку и повторил её — скажется снова.
@@ -391,13 +444,16 @@ func _check_warnings() -> void:
 func _finish_level() -> void:
 	finished = true
 	var find := kingdom.find
+	var new_spells: Array = find.get("spells", []).filter(func(s): return not progress.knows(s))
 	progress.apply_find(int(level.get("id", 0)), find)
-	var new_spells: Array = find.get("spells", [])
-	if not new_spells.is_empty():
-		newest_spell = new_spells.back()
 	var lines: Array = []
 	if find.has("text"):
 		lines.append({"speaker": find.get("speaker", Interpreter.NARRATOR), "text": find["text"]})
+	if not new_spells.is_empty():
+		newest_spells = new_spells
+		var book_line := _book_line(new_spells)
+		if book_line != "":
+			lines.append({"speaker": Interpreter.NARRATOR, "text": book_line})
 	# Итог уровня: что Торвальд получил; если в уровне не задан — общее «Уровень пройден!».
 	lines.append({"speaker": Interpreter.NARRATOR, "text": level.get("result", Texts.t("level_done"))})
 	lines.append_array(level.get("outro", []))
@@ -469,6 +525,9 @@ func _interact() -> void:
 				_finish_level()
 		"barrier":
 			speak(Interpreter.TANENBUM, t["barrier"].get("look", Texts.t("look_decor", {"title": t["label"]})))
+		"torch":
+			var state := Texts.t("torch_state_lit" if n.text == Kingdom.TORCH_LIT else "torch_state_dark")
+			speak(Interpreter.NARRATOR, Texts.t("look_torch", {"title": n.title, "name": n.name, "state": state}))
 		"door":
 			if n.locked != "":
 				speak(Interpreter.TANENBUM, n.locked)

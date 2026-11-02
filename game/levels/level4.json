@@ -32,7 +32,7 @@
 		"spells": ["light", "dark"],
 		"text": "Заклинание light зажигает огонь, а dark проверяет, темно ли. Удачи в Замке!"
 	},
-	"next": "",
+	"next": "res://levels/level5.json",
 	"world": {
 		"forest": {
 			"title": "Лес",

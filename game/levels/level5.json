@@ -1,0 +1,84 @@
+{
+	"id": 5,
+	"title": "Замок",
+	"start": "/castle/hall",
+	"spells": ["*", "for", "if"],
+	"final": true,
+	"live_room": true,
+	"splash": {
+		"text": "Большой зал находится в самом сердце Замка. Сегодня в нём пройдёт испытание подмастерья.\n\nТорвальд научится повторять заклинание для многих предметов сразу и проверять условие."
+	},
+	"intro": [
+		{"speaker": "narrator", "text": "Утро пятого дня. Таненбум позвал Торвальда в Большой зал Замка."},
+		{"speaker": "tanenbum", "text": "Сегодня испытание подмастерья. Все факелы в зале погасли."},
+		{"speaker": "tanenbum", "text": "Встань у алтаря. Один факел зажигает заклинание light torch1."},
+		{"speaker": "tanenbum", "text": "torch* значит «все факелы», а for повторяет заклинание."},
+		{"speaker": "tanenbum", "text": "Зажги все сразу заклинанием for t in torch*; do light $t; done"}
+	],
+	"phases": [
+		{
+			"goal": [{"lit": "torch*"}],
+			"toggle": false,
+			"done": [
+				{"speaker": "tanenbum", "text": "Отлично, ты зажёг все факелы одним заклинанием!"},
+				{"speaker": "narrator", "text": "Вдруг подул сквозняк и погасил часть факелов."},
+				{"speaker": "tanenbum", "text": "Если зажечь все подряд, горящие погаснут. Зажги только тёмные."},
+				{"speaker": "tanenbum", "text": "dark проверяет, погас ли факел, а if колдует, только если да."},
+				{"speaker": "tanenbum", "text": "Скажи for t in torch*; do if dark $t; then light $t; fi; done"}
+			],
+			"set": {
+				"/castle/hall/torch2": "Факел погас",
+				"/castle/hall/torch4": "Факел погас",
+				"/castle/hall/torch5": "Факел погас"
+			}
+		},
+		{
+			"goal": [{"lit": "torch*"}, {"used": "if"}],
+			"toggle": true
+		}
+	],
+	"goal": [{"lit": "torch*"}],
+	"hints": [
+		{"until": {"used": "if"}, "at": "/castle/hall", "hint": "Зажигай только тёмные факелы. Проверить факел поможет dark.", "answer": "for t in torch*; do if dark $t; then light $t; fi; done"}
+	],
+	"outro": [
+		{"speaker": "tanenbum", "text": "Горжусь тобой, Торвальд!"}
+	],
+	"result": "Торвальд получил шапку подмастерья и выучил заклинания for и if.",
+	"find": {
+		"item": "hat",
+		"speaker": "tanenbum",
+		"text": "Ты прошёл испытание! Держи шапку подмастерья, ты её заслужил."
+	},
+	"world": {
+		"castle": {
+			"title": "Замок",
+			"to": "в Замок",
+			"at": "в Замке",
+			"theme": "castle",
+			"children": {
+				"hall": {
+					"title": "Большой зал",
+					"to": "в Большой зал",
+					"at": "в Большом зале",
+					"theme": "castle",
+					"npcs": [
+						{"id": "tanenbum", "name": "Таненбум", "lines": [
+							"Встань у алтаря и произноси заклинания оттуда.",
+							"Звёздочка torch* означает все факелы зала."
+						]}
+					],
+					"children": {
+						"altar": {"title": "алтарь испытания", "trigger": "altar", "text": "У этого алтаря подмастерье проходит испытание."},
+						"torch1": {"title": "факел", "trigger": "torch", "layout": "wall", "text": "Факел погас"},
+						"torch2": {"title": "факел", "trigger": "torch", "layout": "wall", "text": "Факел погас"},
+						"torch3": {"title": "факел", "trigger": "torch", "layout": "wall", "text": "Факел погас"},
+						"torch4": {"title": "факел", "trigger": "torch", "layout": "wall", "text": "Факел погас"},
+						"torch5": {"title": "факел", "trigger": "torch", "layout": "wall", "text": "Факел погас"},
+						"torch6": {"title": "факел", "trigger": "torch", "layout": "wall", "text": "Факел погас"}
+					}
+				}
+			}
+		}
+	}
+}

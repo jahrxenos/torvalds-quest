@@ -30,6 +30,7 @@ func _init() -> void:
 	test_level2()
 	test_level3()
 	test_level4()
+	test_level5()
 	print("Тесты: пройдено %d, провалено %d" % [passed, failed])
 	quit(1 if failed else 0)
 
@@ -125,7 +126,7 @@ func test_spells_and_texts() -> void:
 	InterpreterScript.load_spells()
 	var names: Array = InterpreterScript.spells.keys()
 	names.sort()
-	check(names == ["./", "cat", "cd", "chmod", "cp", "help", "ls", "mount", "mv", "pwd"], "заклинания найдены в папке: %s" % [names])
+	check(names == ["*", "./", "cat", "cd", "chmod", "cp", "dark", "for", "help", "if", "light", "ls", "mount", "mv", "pwd"], "заклинания найдены в папке: %s" % [names])
 	for s in InterpreterScript.spells.values():
 		check(s.desc != "" and s.example != "", "у %s есть описание и пример для Книги" % s.name)
 		if s.trigger != "":
@@ -236,3 +237,32 @@ func test_level4() -> void:
 	check(not r["goal_met"], "цель ещё не выполнена: нужны светлячки")
 	k.talked["fireflies"] = true
 	check(k.is_goal_met(), "поговорил со светлячками — цель уровня 4")
+
+
+func test_level5() -> void:
+	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://levels/level5.json"))
+	var k = KingdomScript.from_dict(data)
+	k.goal = data["phases"][0]["goal"]
+	k.torch_toggle = data["phases"][0]["toggle"]
+	var p = ProgressScript.new()
+	p.learn(["pwd", "ls", "cd", "help", "light", "dark", "*", "for", "if"])
+	var it = InterpreterScript.new(k, p)
+	it.trigger = "altar"
+	check(it.execute("ls torch*")["output"].size() == 6, "ls torch* — шесть факелов")
+	var r = it.execute("light torch1")
+	check(r["output"] == ["torch1: горит"] and said(r) == "Факел torch1 загорелся.", "light одного факела")
+	r = it.execute("for t in torch*; do light $t; done")
+	check(r["output"].size() == 6 and said(r) == "Горит факелов: 6 из 6." and r["goal_met"], "цикл зажёг все, этап 1 (горящий torch1 не погас)")
+	# Этап 2: сквозняк гасит часть факелов.
+	for path in data["phases"][0]["set"]:
+		k.resolve(path).text = data["phases"][0]["set"][path]
+	k.goal = data["phases"][1]["goal"]
+	k.torch_toggle = data["phases"][1]["toggle"]
+	r = it.execute("for t in torch*; do light $t; done")
+	check(said(r) == "Горит факелов: 3 из 6." and not r["goal_met"], "простой цикл гасит горящие")
+	r = it.execute("for t in torch*; do if dark $t; then light $t; fi; done")
+	check(said(r) == "Горит факелов: 6 из 6." and r["goal_met"], "цикл с условием зажёг только тёмные, этап 2")
+	check(said(it.execute("for t in torch*; light $t")).begins_with("Цикл записывается так"), "ошибка в цикле")
+	check(it.execute("dark torch1")["output"] == ["torch1: светло"], "dark отдельно")
+	it.trigger = ""
+	check(said(it.execute("light torch1")).contains("алтарю"), "light только у алтаря")

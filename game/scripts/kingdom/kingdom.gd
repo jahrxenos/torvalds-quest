@@ -37,6 +37,10 @@ var read_paths: Dictionary = {}
 var ran_paths: Dictionary = {}
 ## С кем из персонажей Торвальд уже поговорил (id персонажа).
 var talked: Dictionary = {}
+## Какие заклинания уже произносились на уровне (для условия {"used": "for"}).
+var used: Dictionary = {}
+## Гаснет ли горящий факел от повторного light (на первом этапе испытания — нет).
+var torch_toggle := true
 
 
 func _init() -> void:
@@ -271,7 +275,10 @@ func light(path: String) -> Err:
 		return Err.NOT_FOUND
 	if node.is_dir:
 		return Err.IS_DIR
-	node.text = TORCH_LIT if node.text == TORCH_DARK else TORCH_DARK
+	if torch_toggle:
+		node.text = TORCH_LIT if node.text == TORCH_DARK else TORCH_DARK
+	else:
+		node.text = TORCH_LIT
 	return Err.OK
 
 
@@ -287,7 +294,7 @@ func is_dark(path: String) -> bool:
 ## {"exists": путь} / {"missing": путь} — предмет есть / его нет; {"ran": путь} — свиток прочитан вслух;
 ## {"text": путь, "is": строка} — у предмета такой текст (факелы); {"lit": "шаблон"} — горят все подходящие факелы;
 ## {"mounted": путь} — повозка открыта; {"exec": путь} — свиток заряжен;
-## {"talked": id} — Торвальд поговорил с персонажем (отмечает сцена).
+## {"talked": id} — Торвальд поговорил с персонажем (отмечает сцена); {"used": заклинание} — оно произносилось.
 func is_goal_met() -> bool:
 	if goal.is_empty():
 		return false
@@ -315,6 +322,8 @@ func _condition_met(cond: Dictionary) -> bool:
 		return n != null and n.executable
 	if cond.has("talked"):
 		return talked.has(cond["talked"])
+	if cond.has("used"):
+		return used.has(cond["used"])
 	if cond.has("text"):
 		var node := resolve(cond["text"])
 		return node != null and node.text == cond.get("is", "")

@@ -63,10 +63,25 @@ func backspace() -> void:
 ## Забрать набранную строку: она уходит в историю вместе с приглашением.
 func take_input() -> String:
 	var line := typed
-	_history.add_row(_prompt_bbcode() + "[color=%s]%s[/color]" % [C_TEXT, LogPanel.escape(line)])
+	# Длинное заклинание переносится: первая часть — после приглашения, остальное — следующими строками.
+	var first := maxi(1, _chars() - _prompt_plain().length())
+	_history.add_row(_prompt_bbcode() + "[color=%s]%s[/color]" % [C_TEXT, LogPanel.escape(line.left(first))])
+	var rest := line.substr(first)
+	while rest != "":
+		_history.add_row("[color=%s]%s[/color]" % [C_TEXT, LogPanel.escape(rest.left(_chars()))])
+		rest = rest.substr(_chars())
 	typed = ""
 	_refresh()
 	return line
+
+
+## Сколько знаков помещается в строку терминала.
+func _chars() -> int:
+	return maxi(10, int(size.x / UiFont.char_w))
+
+
+func _prompt_plain() -> String:
+	return "torvald@linux:%s$ " % _prompt_path
 
 
 func clear() -> void:
@@ -76,7 +91,11 @@ func clear() -> void:
 
 
 func print_line(text: String) -> void:
-	_history.add_row(_colorize(text))
+	if text.length() <= _chars():
+		_history.add_row(_colorize(text))
+		return
+	for part in LogPanel.wrap_words(text, _chars()):
+		_history.add_row(_colorize(part))
 
 
 func _prompt_bbcode() -> String:
@@ -88,7 +107,10 @@ func _refresh() -> void:
 	if _input == null:
 		return
 	var cursor := "█" if _cursor_on else " "
-	_input.text = _prompt_bbcode() + "[color=%s]%s%s[/color]" % [C_TEXT, LogPanel.escape(typed), cursor]
+	# Если набранное не помещается, показываем конец строки, чтобы курсор был виден.
+	var room := _chars() - _prompt_plain().length() - 1
+	var shown := typed if typed.length() <= room else "…" + typed.right(room - 1)
+	_input.text = _prompt_bbcode() + "[color=%s]%s%s[/color]" % [C_TEXT, LogPanel.escape(shown), cursor]
 
 
 ## Строки вывода ls: имя места («garden/») голубым, остальное обычным цветом.

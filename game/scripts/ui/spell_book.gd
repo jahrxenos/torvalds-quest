@@ -29,13 +29,14 @@ func _ready() -> void:
 
 
 ## spells — имена выученных заклинаний по порядку изучения; newest — подсвеченное.
-func open(spells: Array[String], newest: String) -> void:
+## newest — заклинания, выученные последними: они подсвечены.
+func open(spells: Array[String], newest: Array) -> void:
 	var text := "[table=2]"
 	for spell_name in spells:
 		var spell: Spell = Interpreter.spells.get(spell_name)
 		if spell == null:
 			continue
-		var color := C_NEW if spell_name == newest else C_SPELL
+		var color := C_NEW if spell_name in newest else C_SPELL
 		text += "[cell][color=%s]%s[/color]   [/cell][cell][color=%s]%s[/color][/cell]" % [
 			color, LogPanel.escape(spell.example), C_DESC, spell.desc]
 	_list.text = text + "[/table]"
