@@ -153,10 +153,17 @@ func _place_decor(theme: Dictionary, rng: RandomNumberGenerator) -> void:
 	var chosen: Array = node.data.get("decor", []).duplicate()
 	var pool: Array = theme.get("decor", [])
 	if not pool.is_empty():
-		var limits: Array = _themes.get("decor_count", [4, 6])
+		var limits: Array = theme.get("decor_count", _themes.get("decor_count", [4, 6]))
 		var count := rng.randi_range(int(limits[0]), int(limits[1]))
-		for i in count:
-			chosen.append(pool[rng.randi() % pool.size()])
+		# Без повторов: перемешиваем набор и берём по порядку.
+		var shuffled := pool.duplicate()
+		for i in range(shuffled.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var tmp = shuffled[i]
+			shuffled[i] = shuffled[j]
+			shuffled[j] = tmp
+		for i in mini(count, shuffled.size()):
+			chosen.append(shuffled[i])
 	for d: Dictionary in chosen:
 		if free.is_empty():
 			break
@@ -182,7 +189,10 @@ func _entry_cell(back_from: String) -> Vector2i:
 func stand_at(kind: String, node_name: String = "") -> void:
 	for t in triggers:
 		if t["kind"] == kind and (node_name == "" or (t["node"] and t["node"].name == node_name)):
-			hero_cell = t["cells"][0]
+			var free_cells: Array = t["cells"].filter(func(c): return not _blocked.has(c))
+			if free_cells.is_empty():
+				continue
+			hero_cell = free_cells[0]
 			_hero.position = _cell_pos(hero_cell)
 			_update_trigger()
 			return
@@ -263,7 +273,7 @@ func _show_label(t: Dictionary) -> void:
 	if t.is_empty() or t["label"] == "":
 		_label.hide()
 		return
-	_label.text = t["label"]
+	_label.text = Texts.capitalize_first(t["label"])
 	_label.reset_size()
 	var p := _cell_pos(t["pos"])
 	var x := clampf(p.x + CELL / 2.0 - _label.size.x / 2, 2, COLS * CELL - _label.size.x - 2)

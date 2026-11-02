@@ -65,7 +65,7 @@ func test_errors_and_hints() -> void:
 	var r = it.execute("cd tower")
 	check(said(r).begins_with("Здесь нет ничего с магическим именем tower."), "1-я ошибка: общая фраза")
 	r = it.execute("cd tower")
-	check(said(r).contains("Чтобы выйти из двора, произнеси заклинание cd .."), "2-я ошибка: подсказка этапа")
+	check(said(r).contains("Чтобы выйти, произнеси заклинание cd .."), "2-я ошибка: подсказка этапа")
 	r = it.execute("cd tower")
 	check(said(r).ends_with("Произнеси заклинание cd .."), "3-я ошибка: готовое заклинание")
 	it.execute("cd ..")

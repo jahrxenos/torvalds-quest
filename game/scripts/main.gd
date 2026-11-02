@@ -16,6 +16,15 @@ var terminal: TerminalPanel
 var book: SpellBook
 var room: RoomView
 var menu: PauseMenu
+var story: StoryWindow
+var story_pages: Array = []
+## Показывать предысторию и заставки (в отладочном режиме --demo не показываются).
+var show_story := true
+## Финальный уровень пройден: после последней реплики по Enter покажем эпилог.
+var pending_epilogue := false
+## Очередь реплик, которые показываются по Enter.
+var queue: Array = []
+var _queue_running := false
 var level_path := ""
 ## Прогресс на момент начала уровня — для «Начать уровень заново».
 var progress_at_start: Dictionary = {}
@@ -46,12 +55,23 @@ func _ready() -> void:
 	world_h = H - dialog_h - term_h
 	speakers = JSON.parse_string(FileAccess.get_file_as_string("res://data/speakers.json"))
 	_build_screen()
-	_start_level(LEVEL)
 	var args := OS.get_cmdline_user_args()
+	show_story = "--demo=splash" in args or not Array(args).any(func(a): return a.begins_with("--demo"))
+	if show_story:
+		show_pages([{"title": Texts.t("prologue_title"), "text": Texts.t("prologue")}])
+	_start_level(LEVEL)
 	if "--demo" in args:
 		_demo(["pwd", "ls", "@exit", "cd tower", "cd tower", "cd ..", "ls", "@door:tower", "@enter", "cd tower", "@npc", "@enter", "help"])
 	elif "--demo=stable" in args:
 		_demo(["@decor", "@enter", "@door:stable", "@enter", "cd stable", "@decor", "@enter", "@menu"])
+	elif "--demo=splash" in args:
+		_demo(["@page"])
+	elif "--demo=epilogue" in args:
+		_show_epilogue()
+	elif "--demo=look" in args:
+		_demo(["@door:stable", "@enter", "@exit", "@enter", "@decor", "@enter"])
+	elif "--demo=intro" in args:
+		_demo(["@next", "@next", "@next", "@next", "ls", "@exit", "cd ..", "@door:tower", "cd tower", "@next"])
 
 
 ## Отладка: набирает заклинания сама, по букве. Запуск: godot --path game -- --demo
@@ -61,6 +81,12 @@ func _demo(lines: Array) -> void:
 		await get_tree().create_timer(1.2).timeout
 		if line == "@enter":
 			_interact()
+			continue
+		if line == "@page":
+			_next_page()
+			continue
+		if line == "@next":
+			_next_line()
 			continue
 		if line == "@menu":
 			_open_menu()
@@ -122,6 +148,41 @@ func _build_screen() -> void:
 	menu.quit_game.connect(func(): get_tree().quit())
 	add_child(menu)
 
+	story = StoryWindow.new()
+	story.size = Vector2(600, H - 24)
+	story.position = Vector2((W - 600) / 2, 12)
+	add_child(story)
+
+
+## Окна с текстом по очереди (предыстория, заставка уровня): Enter — следующее.
+## Реплики уровня начинаются после последнего окна.
+func show_pages(pages: Array) -> void:
+	story_pages.append_array(pages)
+	if not story.visible:
+		_next_page()
+
+
+func _next_page() -> void:
+	if story_pages.is_empty():
+		_close_story()
+		return
+	var page: Dictionary = story_pages.pop_front()
+	room.input_enabled = false
+	story.open(page["title"], page["text"], page.get("footer", Texts.t("prologue_footer")))
+
+
+## Эпилог: после последней реплики финального уровня, по Enter.
+func _show_epilogue() -> void:
+	pending_epilogue = false
+	show_pages([{"title": Texts.t("epilogue_title"), "text": Texts.t("epilogue"), "footer": Texts.t("epilogue_footer")}])
+
+
+func _close_story() -> void:
+	story.hide()
+	room.input_enabled = true
+	if not _queue_running:
+		_next_line()
+
 
 func _frame(rect: Rect2) -> void:
 	var p := Panel.new()
@@ -149,8 +210,31 @@ func _start_level(path: String) -> void:
 	room.move_child(place_label, -1)
 	room.move_child(fade, -1)
 	_update_place()
-	for line: Dictionary in level.get("intro", []):
-		speak(line["speaker"], line["text"])
+	var splash: Dictionary = level.get("splash", {})
+	if show_story and not splash.is_empty():
+		show_pages([{"title": Texts.t("level_title", {"n": int(level.get("id", 0)), "title": level.get("title", "")}), "text": splash["text"]}])
+	say_queue(level.get("intro", []))
+
+
+## Реплики по очереди: следующая — по Enter на пустой строке. У незаконченной очереди в конце ▸.
+func say_queue(lines: Array) -> void:
+	queue.append_array(lines)
+	if not story.visible and not _queue_running:
+		_next_line()
+
+
+func _next_line() -> void:
+	if queue.is_empty():
+		_queue_running = false
+		return
+	_queue_running = true
+	var line: Dictionary = queue.pop_front()
+	var text: String = line["text"]
+	if not queue.is_empty():
+		text += " " + Texts.t("more")
+	speak(line.get("speaker", Interpreter.NARRATOR), text)
+	if queue.is_empty():
+		_queue_running = false
 
 
 func _update_place() -> void:
@@ -163,6 +247,8 @@ func _restart_level() -> void:
 	progress = Progress.from_dict(progress_at_start)
 	dialog.clear()
 	terminal.clear()
+	queue.clear()
+	_queue_running = false
 	_start_level(level_path)
 
 
@@ -198,6 +284,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key.keycode == KEY_ESCAPE:
 			_close_menu()
 		return
+	if story.visible:
+		if key.keycode in [KEY_ENTER, KEY_KP_ENTER]:
+			_next_page()
+		return
 	if book.visible:
 		if key.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE]:
 			book.hide()
@@ -208,7 +298,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			_open_menu()
 		KEY_ENTER, KEY_KP_ENTER:
 			if terminal.typed.strip_edges() == "":
-				_interact()
+				if not queue.is_empty():
+					_next_line()
+				elif pending_epilogue:
+					_show_epilogue()
+				else:
+					_interact()
 			else:
 				_cast(terminal.take_input())
 		KEY_BACKSPACE:
@@ -221,6 +316,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _cast(line: String) -> void:
+	# Ребёнок уже колдует: недочитанные реплики показываем сразу, чтобы очередь не отставала от действий.
+	while not queue.is_empty():
+		var q: Dictionary = queue.pop_front()
+		speak(q.get("speaker", Interpreter.NARRATOR), q["text"])
+	_queue_running = false
 	var before := kingdom.cwd
 	var res := interp.execute(line)
 	for out: String in res["output"]:
@@ -240,13 +340,17 @@ func _cast(line: String) -> void:
 func _finish_level() -> void:
 	finished = true
 	var find := kingdom.find
-	if find.has("text"):
-		speak(find.get("speaker", Interpreter.NARRATOR), find["text"])
 	progress.apply_find(int(level.get("id", 0)), find)
 	var new_spells: Array = find.get("spells", [])
 	if not new_spells.is_empty():
 		newest_spell = new_spells.back()
-	speak(Interpreter.NARRATOR, Texts.t("level_done"))
+	var lines: Array = []
+	if find.has("text"):
+		lines.append({"speaker": find.get("speaker", Interpreter.NARRATOR), "text": find["text"]})
+	lines.append({"speaker": Interpreter.NARRATOR, "text": Texts.t("level_done")})
+	lines.append_array(level.get("outro", []))
+	pending_epilogue = level.get("final", false)
+	say_queue(lines)
 
 
 # --- Комнаты и триггеры ------------------------------------------------------
