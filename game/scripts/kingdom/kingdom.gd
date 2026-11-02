@@ -35,6 +35,8 @@ var hints: Array = []
 ## Что игрок уже сделал: абсолютные пути прочитанных предметов и прочитанных вслух свитков.
 var read_paths: Dictionary = {}
 var ran_paths: Dictionary = {}
+## С кем из персонажей Торвальд уже поговорил (id персонажа).
+var talked: Dictionary = {}
 
 
 func _init() -> void:
@@ -284,7 +286,8 @@ func is_dark(path: String) -> bool:
 ## Условия: {"cwd": путь} — Торвальд стоит здесь; {"read": путь} — предмет прочитан;
 ## {"exists": путь} / {"missing": путь} — предмет есть / его нет; {"ran": путь} — свиток прочитан вслух;
 ## {"text": путь, "is": строка} — у предмета такой текст (факелы); {"lit": "шаблон"} — горят все подходящие факелы;
-## {"mounted": путь} — повозка открыта.
+## {"mounted": путь} — повозка открыта; {"exec": путь} — свиток заряжен;
+## {"talked": id} — Торвальд поговорил с персонажем (отмечает сцена).
 func is_goal_met() -> bool:
 	if goal.is_empty():
 		return false
@@ -307,6 +310,11 @@ func _condition_met(cond: Dictionary) -> bool:
 		return ran_paths.has(cond["ran"])
 	if cond.has("mounted"):
 		return mounted.has(cond["mounted"])
+	if cond.has("exec"):
+		var n := resolve(cond["exec"])
+		return n != null and n.executable
+	if cond.has("talked"):
+		return talked.has(cond["talked"])
 	if cond.has("text"):
 		var node := resolve(cond["text"])
 		return node != null and node.text == cond.get("is", "")

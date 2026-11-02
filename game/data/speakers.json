@@ -7,5 +7,6 @@
 	"smith": {"name": "Кузнец", "tile": "d:86", "color": "#e4e4e4"},
 	"innkeeper": {"name": "Трактирщик", "tile": "d:88", "color": "#e4e4e4"},
 	"merchant": {"name": "Купец Борис", "tile": "d:112", "color": "#e4e4e4"},
-	"cook": {"name": "Повариха", "tile": "d:99", "color": "#e4e4e4"}
+	"cook": {"name": "Повариха", "tile": "d:99", "color": "#e4e4e4"},
+	"fireflies": {"name": "Светлячки", "tile": "c:55", "color": "#ffd75f"}
 }

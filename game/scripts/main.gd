@@ -90,6 +90,9 @@ func _ready() -> void:
 		_demo(["@cart", "mount cart", "mv cart/apples storage", "cp cart/map storage", "mv cart/cheese kitchen", "@shot:l3_tavern",
 			"@door:storage", "cd storage", "@shot:l3_storage", "@exit", "cd ..", "@door:kitchen", "cd kitchen", "@shot:l3_kitchen",
 			"@exit", "cd ..", "@exit", "cd ..", "@shot:l3_village", "@quit"])
+	elif "--demo=forest" in args:
+		_demo(["@shot:l4_start", "@scroll", "./scroll", "@note", "cat note", "@scroll", "chmod +x scroll", "./scroll",
+			"@shot:l4_open", "@npc", "@enter", "@shot:l4_fireflies", "@quit"])
 	elif "--demo=look" in args:
 		_demo(["@door:stable", "@enter", "@exit", "@enter", "@decor", "@enter"])
 	elif "--demo=intro" in args:
@@ -367,6 +370,7 @@ func _cast(line: String) -> void:
 	if res["open_book"]:
 		room.input_enabled = false
 		book.open(progress.spells, newest_spell)
+	room.update_barrier()
 	_check_warnings()
 	if res["goal_met"] and not finished:
 		_finish_level()
@@ -459,6 +463,12 @@ func _interact() -> void:
 			if not lines.is_empty():
 				speak(npc["id"], lines[npc_line % lines.size()])
 				npc_line += 1
+			# Цель уровня может требовать разговора с персонажем ({"talked": id}).
+			kingdom.talked[npc["id"]] = true
+			if kingdom.is_goal_met() and not finished:
+				_finish_level()
+		"barrier":
+			speak(Interpreter.TANENBUM, t["barrier"].get("look", Texts.t("look_decor", {"title": t["label"]})))
 		"door":
 			if n.locked != "":
 				speak(Interpreter.TANENBUM, n.locked)

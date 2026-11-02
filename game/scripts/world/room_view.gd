@@ -25,6 +25,8 @@ var triggers: Array[Dictionary] = []
 var hero_cell := Vector2i(10, 2)
 
 var _blocked: Dictionary = {}
+var _barrier_nodes: Array = []
+var _barrier_cols: Dictionary = {}
 var _layer: Control
 var _hero: TextureRect
 var _label: Label
@@ -64,6 +66,7 @@ func build(p_kingdom: Kingdom, p_node: KNode, back_from: String = "") -> void:
 	_place_exit(theme)
 	_place_children(theme)
 	_place_npcs()
+	_place_barrier()
 	_place_decor(theme, rng)
 	_hero = _put(_themes["hero"], Vector2i.ZERO)
 	_label = Label.new()
@@ -171,6 +174,53 @@ func _place_npcs() -> void:
 		triggers.append({"kind": "npc", "spell": "", "node": null, "label": npc.get("name", ""), "cells": cells, "pos": cell, "npc": npc})
 
 
+## Преграда поперёк комнаты (поле barrier места): {"col", "width", "tiles": [...], "title", "until": условие}.
+## Заросли стоят всегда; когда условие выполнено, исчезают только кусты среднего ряда — открывается проход.
+func _place_barrier() -> void:
+	_barrier_nodes.clear()
+	_barrier_cols.clear()
+	var b: Dictionary = node.data.get("barrier", {})
+	if b.is_empty():
+		return
+	var col := int(b.get("col", COLS / 2))
+	var width := int(b.get("width", 1))
+	var open := kingdom.conditions_met([b["until"]])
+	var tiles: Array = b.get("tiles", ["t:5"])
+	var i := 0
+	for c in range(col, col + width):
+		_barrier_cols[c] = true
+		for y in range(1, ROWS - 1):
+			var cell := Vector2i(c, y)
+			var middle := y == EXIT_CELL.y
+			i += 1
+			if middle and open:
+				continue
+			var sprite := _put(tiles[(i - 1) % tiles.size()], cell)
+			_blocked[cell] = true
+			if middle:
+				_barrier_nodes.append(sprite)
+	if open:
+		return
+	var cells: Array[Vector2i] = [Vector2i(col - 1, 1), Vector2i(col - 1, 2), Vector2i(col - 1, 3)]
+	triggers.append({"kind": "barrier", "spell": "", "node": null, "label": b.get("title", ""), "cells": cells, "pos": Vector2i(col, 2), "barrier": b})
+
+
+## Открыть проход, если условие преграды выполнено: кусты среднего ряда плавно исчезают.
+func update_barrier() -> void:
+	var b: Dictionary = node.data.get("barrier", {}) if node else {}
+	if b.is_empty() or _barrier_nodes.is_empty() or not kingdom.conditions_met([b["until"]]):
+		return
+	var col := int(b.get("col", COLS / 2))
+	for c in range(col, col + int(b.get("width", 1))):
+		_blocked.erase(Vector2i(c, EXIT_CELL.y))
+	triggers = triggers.filter(func(t): return t["kind"] != "barrier")
+	var tw := create_tween().set_parallel()
+	for n in _barrier_nodes:
+		tw.tween_property(n, "modulate:a", 0.0, 0.6)
+	_barrier_nodes.clear()
+	_update_trigger()
+
+
 ## Предметы и животные для уюта: свои из уровня (поле decor места) и случайные из набора области.
 ## Ставятся только на верхний и нижний ряды пола, средний ряд остаётся свободным проходом.
 func _place_decor(theme: Dictionary, rng: RandomNumberGenerator) -> void:
@@ -183,7 +233,7 @@ func _place_decor(theme: Dictionary, rng: RandomNumberGenerator) -> void:
 	for y in [1, ITEM_ROW]:
 		for x in range(2, COLS - 2):
 			var cell := Vector2i(x, y)
-			if not taken.has(cell) and not _blocked.has(cell):
+			if not taken.has(cell) and not _blocked.has(cell) and not _barrier_cols.has(x):
 				free.append(cell)
 	var chosen: Array = node.data.get("decor", []).duplicate()
 	var pool: Array = theme.get("decor", [])

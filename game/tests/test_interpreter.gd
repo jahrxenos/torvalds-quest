@@ -29,6 +29,7 @@ func _init() -> void:
 	test_wrap()
 	test_level2()
 	test_level3()
+	test_level4()
 	print("Тесты: пройдено %d, провалено %d" % [passed, failed])
 	quit(1 if failed else 0)
 
@@ -217,3 +218,21 @@ func test_level3() -> void:
 	check(not k.conditions_met(warn), "карта вернулась")
 	var r = it.execute("cp cart/map storage")
 	check(said(r) == "Торвальд скопировал предмет (карта Леса) в кладовую." and r["goal_met"], "копия карты, цель уровня 3")
+
+
+func test_level4() -> void:
+	var k = KingdomScript.load_level("res://levels/level4.json")
+	var p = ProgressScript.new()
+	p.learn(["pwd", "ls", "cd", "help", "cat", "chmod", "./"])
+	var it = InterpreterScript.new(k, p)
+	it.trigger = "scroll"
+	check(said(it.execute("./scroll")).begins_with("Свиток молчит"), "незаряженный свиток")
+	it.trigger = "note"
+	check(it.execute("cat note")["output"][1].contains("chmod +x scroll"), "записка на пне")
+	it.trigger = "scroll"
+	check(said(it.execute("chmod +x scroll")) == "Свиток засветился, в нём появилась сила.", "chmod +x")
+	var r = it.execute("./scroll")
+	check(said(r).contains("Заросли расступились") and k.conditions_met([{"ran": "/forest/scroll"}]), "./scroll открывает тропу")
+	check(not r["goal_met"], "цель ещё не выполнена: нужны светлячки")
+	k.talked["fireflies"] = true
+	check(k.is_goal_met(), "поговорил со светлячками — цель уровня 4")

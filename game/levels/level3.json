@@ -43,7 +43,7 @@
 		"speaker": "innkeeper",
 		"text": "Спасибо, Торвальд! Держи копию карты Леса, пригодится."
 	},
-	"next": "",
+	"next": "res://levels/level4.json",
 	"fstab": {
 		"/village/tavern/cart": {
 			"apples": {"title": "яблоки", "sprite": "f:47", "trigger": "item", "text": "Спелые красные яблоки."},

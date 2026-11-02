@@ -160,7 +160,8 @@
 			]
 		},
 		"forest": {
-			"floor": ["t:0", "t:1", "t:1", "t:2"], "wall": "t:16", "door": "t:25", "locked": "t:5",
+			"floor": ["t:0", "t:1", "t:1", "t:2"], "wall": "t:16", "door": "t:25", "locked": "t:5", "exit": "t:25",
+			"wall_side": "t:28",
 			"decor": [
 				{"tile": "t:15", "title": "осенняя ель"},
 				{"tile": "t:28", "title": "ель"},
@@ -185,7 +186,8 @@
 		"smith": "d:86",
 		"innkeeper": "d:88",
 		"merchant": "d:112",
-		"cook": "d:99"
+		"cook": "d:99",
+		"fireflies": "c:55"
 	},
 	"hero": "d:85"
 }
