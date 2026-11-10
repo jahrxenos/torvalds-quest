@@ -29,4 +29,6 @@
 |---|---|---|---|
 | GNU Unifont 18.0.01 | Roman Czyborra, Paul Hardy и участники проекта | SIL OFL 1.1 | `game/assets/fonts/unifont.otf`, лицензия рядом |
 | Значок рассказчика «свиток» (эмодзи U+1F4DC) | Twemoji (Twitter, Inc. и участники проекта) | CC BY 4.0 | `game/assets/icons/narrator.png` |
+| Звуки шагов, двери, книги | Kenney RPG Audio (www.kenney.nl) | CC0 1.0 | `game/assets/sfx/step.ogg`, `door.ogg`, `book.ogg` |
+| Звуки заклинания, ошибки, находки, меню, реплик | Kenney Interface Sounds (www.kenney.nl) | CC0 1.0 | `game/assets/sfx/spell.ogg`, `error.ogg`, `find.ogg`, `click.ogg`, `talk.ogg` |
 | Книга постояльцев (эмодзи U+1F4D6) | Twemoji (Twitter, Inc. и участники проекта) | CC BY 4.0 | `game/assets/icons/book.png` |

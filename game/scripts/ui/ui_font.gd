@@ -21,9 +21,9 @@ static func setup() -> void:
 
 
 ## Пиксельный шрифт без сглаживания: чётко при увеличении в целое число раз.
+## Грузим импортированный ресурс через load(): исходного .otf в собранной игре нет.
 static func _load(path: String) -> FontFile:
-	var f := FontFile.new()
-	f.load_dynamic_font(path)
+	var f: FontFile = load(path)
 	f.antialiasing = TextServer.FONT_ANTIALIASING_NONE
 	f.hinting = TextServer.HINTING_NONE
 	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED

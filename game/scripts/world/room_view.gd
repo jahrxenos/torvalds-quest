@@ -5,6 +5,8 @@ class_name RoomView
 extends Control
 
 signal trigger_changed(trigger: Dictionary)
+## Торвальд сделал шаг (для звука шагов).
+signal stepped
 
 const COLS := 20
 const ROWS := 5
@@ -20,6 +22,8 @@ var kingdom: Kingdom
 var node: KNode
 ## Можно ли ходить (нельзя, пока открыта Книга или идёт переход).
 var input_enabled := true
+## Ходьба с клавиатуры выключена совсем (отладочный сценарий, чтобы случайные нажатия не мешали снимкам).
+var walk_locked := false
 ## Триггеры: {"kind", "spell", "node", "label", "cells", "pos", "npc"}.
 var triggers: Array[Dictionary] = []
 var hero_cell := Vector2i(10, 2)
@@ -47,7 +51,7 @@ func refresh() -> void:
 	var flip := _hero.flip_h if _hero else false
 	build(kingdom, node)
 	hero_cell = cell
-	_hero.position = _cell_pos(cell)
+	_hero.position = _hero_pos(cell)
 	_hero.flip_h = flip
 	_update_trigger()
 
@@ -60,6 +64,7 @@ func build(p_kingdom: Kingdom, p_node: KNode, back_from: String = "") -> void:
 	_layer = Control.new()
 	_layer.position = Vector2(0, int((size.y - ROWS * CELL) / 2))
 	add_child(_layer)
+	move_child(_layer, 0)  # комната всегда под подписью места и затемнением
 	triggers.clear()
 	_blocked.clear()
 	var theme := theme_of(node)
@@ -80,6 +85,7 @@ func build(p_kingdom: Kingdom, p_node: KNode, back_from: String = "") -> void:
 	_place_barrier()
 	_place_decor(theme, rng)
 	_hero = _put(_themes["hero"], Vector2i.ZERO)
+	_hero.pivot_offset = Vector2(8, 16)  # покачивание при шаге — от ног
 	_label = Label.new()
 	_label.add_theme_color_override("font_color", Color.WHITE)
 	_label.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -87,7 +93,7 @@ func build(p_kingdom: Kingdom, p_node: KNode, back_from: String = "") -> void:
 	_label.hide()
 	_layer.add_child(_label)
 	hero_cell = _entry_cell(back_from)
-	_hero.position = _cell_pos(hero_cell)
+	_hero.position = _hero_pos(hero_cell)
 	_update_trigger()
 
 
@@ -313,7 +319,7 @@ func stand_at(kind: String, node_name: String = "") -> void:
 			if free_cells.is_empty():
 				continue
 			hero_cell = free_cells[0]
-			_hero.position = _cell_pos(hero_cell)
+			_hero.position = _hero_pos(hero_cell)
 			_update_trigger()
 			return
 
@@ -347,10 +353,16 @@ func _cell_pos(cell: Vector2i) -> Vector2:
 	return Vector2(cell.x * CELL, cell.y * CELL)
 
 
+## Позиция героя в клетке. Масштаб ×2 берётся от точки у ног (pivot 8, 16),
+## поэтому спрайт сдвигается на pivot — компенсируем, чтобы он стоял ровно в клетке.
+func _hero_pos(cell: Vector2i) -> Vector2:
+	return _cell_pos(cell) + _hero.pivot_offset * (_hero.scale.x - 1.0) if _hero else _cell_pos(cell)
+
+
 # --- Ходьба ------------------------------------------------------------------
 
 func _process(_delta: float) -> void:
-	if _moving or not input_enabled or _hero == null:
+	if _moving or not input_enabled or walk_locked or _hero == null:
 		return
 	var dir := Vector2i.ZERO
 	if Input.is_key_pressed(KEY_LEFT):
@@ -373,11 +385,27 @@ func step(dir: Vector2i) -> void:
 		return
 	hero_cell = target
 	_moving = true
+	stepped.emit()
 	var tw := create_tween()
-	tw.tween_property(_hero, "position", _cell_pos(target), STEP_TIME)
+	tw.tween_property(_hero, "position", _hero_pos(target), STEP_TIME)
+	# Шаг вприпрыжку: спрайт чуть подпрыгивает и опускается (pivot — низ тайла).
+	var bob := create_tween()
+	bob.tween_property(_hero, "scale", Vector2(2.0, 2.15), STEP_TIME / 2)
+	bob.tween_property(_hero, "scale", Vector2(2.0, 2.0), STEP_TIME / 2)
 	tw.tween_callback(func():
 		_moving = false
 		_update_trigger())
+
+
+## Радость: Торвальд дважды подпрыгивает (находка, пройденный уровень).
+func celebrate() -> void:
+	if _hero == null:
+		return
+	var base := _hero_pos(hero_cell)
+	var tw := create_tween()
+	for i in 2:
+		tw.tween_property(_hero, "position", base + Vector2(0, -10), 0.12).set_ease(Tween.EASE_OUT)
+		tw.tween_property(_hero, "position", base, 0.12).set_ease(Tween.EASE_IN)
 
 
 func _update_trigger() -> void:

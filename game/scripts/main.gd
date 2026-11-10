@@ -15,7 +15,14 @@ var dialog: LogPanel
 var terminal: TerminalPanel
 var book: SpellBook
 var room: RoomView
-var menu: PauseMenu
+var menu: ButtonMenu
+## Открытые экраны меню по порядку (Esc — вернуться на предыдущий).
+var menu_stack: Array[String] = []
+var settings: Dictionary = {}
+## Идёт игра (а не главное меню).
+var in_game := false
+## После закрытия окна с текстом вернуться в главное меню (окно «Об игре»).
+var story_back_to_menu := false
 var story: StoryWindow
 var story_pages: Array = []
 ## Показывать предысторию и заставки (в отладочном режиме --demo не показываются).
@@ -51,8 +58,10 @@ func _ready() -> void:
 	# Самопроверка собранной игры: TorvaldsQuest.x86_64 --headless -- --selftest
 	if "--selftest" in OS.get_cmdline_user_args():
 		Interpreter.load_spells()
-		print("selftest: заклинаний %d, текст: %s" % [Interpreter.spells.size(), Texts.t("cd_no_arg")])
-		get_tree().quit(0 if Interpreter.spells.size() == 15 else 1)
+		UiFont.setup()
+		var font_ok := UiFont.regular != null
+		print("selftest: заклинаний %d, шрифт %s, текст: %s" % [Interpreter.spells.size(), "есть" if font_ok else "НЕТ", Texts.t("cd_no_arg")])
+		get_tree().quit(0 if Interpreter.spells.size() == 15 and font_ok else 1)
 		return
 	RenderingServer.set_default_clear_color(Color.BLACK)
 	UiFont.setup()
@@ -62,21 +71,25 @@ func _ready() -> void:
 	world_h = H - dialog_h - term_h
 	speakers = JSON.parse_string(FileAccess.get_file_as_string("res://data/speakers.json"))
 	_build_screen()
+	_setup_audio()
+	settings = SaveGame.load_settings()
+	_apply_settings()
 	var args := OS.get_cmdline_user_args()
+	var debug := Array(args).any(func(a): return a.begins_with("--demo") or a.begins_with("--level="))
 	show_story = "--demo=splash" in args or not Array(args).any(func(a): return a.begins_with("--demo"))
-	if show_story:
-		show_pages([{"title": Texts.t("prologue_title"), "text": Texts.t("prologue")}])
+	if not debug:
+		_show_main_menu()
+		return
+	if "--demo=menu" in args:
+		_show_main_menu()
+		_demo(["@shot:menu_main", "@screen:levels", "@shot:menu_levels", "@screen:settings", "@shot:menu_settings", "@quit"])
+		return
 	# Отладка: --level=2 — начать со второго уровня, как будто первые пройдены.
-	var start := LEVEL
+	var start_level := 1
 	for a in args:
 		if a.begins_with("--level="):
-			var n := int(a.substr(8))
-			for i in range(1, n):
-				var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://levels/level%d.json" % i))
-				progress.learn(d.get("spells", []))
-				progress.apply_find(i, d.get("find", {}))
-			start = "res://levels/level%d.json" % n
-	_start_level(start)
+			start_level = int(a.substr(8))
+	_begin_game(_progress_before(start_level), _level_path(start_level), start_level == 1)
 	if "--demo" in args:
 		_demo(["pwd", "ls", "@exit", "cd tower", "cd tower", "cd ..", "ls", "@door:tower", "@enter", "cd tower", "@npc", "@enter", "help"])
 	elif "--demo=stable" in args:
@@ -100,6 +113,18 @@ func _ready() -> void:
 		_demo(["@shot:l5_start", "@altar", "light torch1", "for t in torch*; do light $t; done", "@shot:l5_phase1",
 			"@next", "@next", "@next", "@next", "@shot:l5_draft", "for t in torch*; do if dark $t; then light $t; fi; done",
 			"@shot:l5_done", "@quit"])
+	elif "--demo=shot" in args:
+		# Кадр уровня для отчёта: build/screen_levelN.png
+		var shots := {
+			1: ["pwd", "ls", "@exit", "cd ..", "@door:tower", "cd tower", "@npc", "@enter"],
+			2: ["@door:square", "cd square", "@note", "cat sign", "@exit", "cd ..", "@door:bakery", "cd bakery", "@npc", "@enter"],
+			3: ["@note", "cat book", "@cart", "mount cart", "ls cart", "mv cart/apples storage"],
+			4: ["@scroll", "chmod +x scroll", "./scroll", "@npc", "@enter"],
+			5: ["@altar", "for t in torch*; do light $t; done", "@next", "@next", "@next", "@next",
+				"for t in torch*; do if dark $t; then light $t; fi; done"],
+		}
+		var n := int(level.get("id", 1))
+		_demo(shots[n] + ["@shot:screen_level%d" % n, "@quit"])
 	elif "--demo=book" in args:
 		_demo(["@next", "@next", "@next", "@next", "@shot:book_intro", "help", "@shot:book_open", "@quit"])
 	elif "--demo=look" in args:
@@ -111,6 +136,7 @@ func _ready() -> void:
 ## Отладка: набирает заклинания сама, по букве. Запуск: godot --path game -- --demo
 ## Строки с @ — действия: @exit, @door:имя, @npc — встать к триггеру; @enter — нажать Enter.
 func _demo(lines: Array) -> void:
+	room.walk_locked = true
 	for line: String in lines:
 		await get_tree().create_timer(1.2).timeout
 		if line == "@enter":
@@ -127,6 +153,9 @@ func _demo(lines: Array) -> void:
 			continue
 		if line == "@page":
 			_next_page()
+			continue
+		if line.begins_with("@screen:"):
+			_open_screen(line.substr(8))
 			continue
 		if line == "@next":
 			_next_line()
@@ -181,14 +210,11 @@ func _build_screen() -> void:
 	book.position = Vector2((W - 600) / 2, 6)
 	add_child(book)
 
-	menu = PauseMenu.new()
-	menu.size = Vector2(260, 150)
-	menu.position = Vector2((W - 260) / 2, (H - 150) / 2)
-	menu.resume.connect(_close_menu)
-	menu.restart.connect(func():
-		_close_menu()
-		_restart_level())
-	menu.quit_game.connect(func(): get_tree().quit())
+	menu = ButtonMenu.new()
+	menu.size = Vector2(340, 250)
+	menu.position = Vector2((W - 340) / 2, (H - 250) / 2)
+	menu.chosen.connect(_on_menu)
+	menu.adjusted.connect(_on_adjust)
 	add_child(menu)
 
 	story = StoryWindow.new()
@@ -222,7 +248,11 @@ func _show_epilogue() -> void:
 
 func _close_story() -> void:
 	story.hide()
-	room.input_enabled = true
+	if story_back_to_menu:
+		story_back_to_menu = false
+		_open_screen("main")
+		return
+	room.input_enabled = in_game
 	if not _queue_running:
 		_next_line()
 
@@ -258,7 +288,9 @@ func _start_level(path: String) -> void:
 	room.build(kingdom, kingdom.cwd)
 	room.move_child(place_label, -1)
 	room.move_child(fade, -1)
+	room.input_enabled = true
 	_update_place()
+	play_music(level.get("music", "res://assets/music/level%d.ogg" % int(level.get("id", 0))))
 	var splash: Dictionary = level.get("splash", {})
 	if show_story and not splash.is_empty():
 		show_pages([{"title": Texts.t("level_title", {"n": int(level.get("id", 0)), "title": level.get("title", "")}), "text": splash["text"]}])
@@ -331,14 +363,216 @@ func speak_as(sp: Dictionary, text: String) -> void:
 	dialog.add_wrapped(shown, Color(sp.get("color", "#e4e4e4")), icon)
 
 
+# --- Меню --------------------------------------------------------------------
+
+## Меню паузы по Esc во время игры.
 func _open_menu() -> void:
-	room.input_enabled = false
-	menu.open()
+	menu_stack.clear()
+	_open_screen("pause")
 
 
 func _close_menu() -> void:
 	menu.hide()
-	room.input_enabled = true
+	menu_stack.clear()
+	room.input_enabled = in_game
+
+
+## Главное меню: фоном двор Замка, игра не идёт.
+func _show_main_menu() -> void:
+	in_game = false
+	story.hide()
+	story_pages.clear()
+	book.hide()
+	queue.clear()
+	_queue_running = false
+	pending_next = ""
+	pending_epilogue = false
+	dialog.clear()
+	terminal.clear()
+	level = JSON.parse_string(FileAccess.get_file_as_string(LEVEL))
+	kingdom = Kingdom.from_dict(level)
+	room.build(kingdom, kingdom.cwd)
+	room.move_child(place_label, -1)
+	room.move_child(fade, -1)
+	_update_place()
+	room.input_enabled = false
+	menu_stack.clear()
+	_open_screen("main")
+	play_music("res://assets/music/menu.ogg")
+
+
+func _open_screen(screen: String) -> void:
+	if menu_stack.is_empty() or menu_stack.back() != screen:
+		menu_stack.append(screen)
+	room.input_enabled = false
+	var web := OS.get_name() == "Web"
+	match screen:
+		"main":
+			var items := []
+			var save := SaveGame.load_game()
+			if not save.is_empty() and save["next_level"] != "":
+				items.append({"id": "continue", "text": Texts.t("menu_continue")})
+			items.append({"id": "new", "text": Texts.t("menu_new")})
+			items.append({"id": "levels", "text": Texts.t("menu_levels")})
+			items.append({"id": "settings", "text": Texts.t("menu_settings")})
+			items.append({"id": "about", "text": Texts.t("menu_about")})
+			if not web:
+				items.append({"id": "quit", "text": Texts.t("menu_quit")})
+			menu.open(Texts.t("prologue_title"), items, Texts.t("menu_subtitle"))
+		"pause":
+			var items := [
+				{"id": "resume", "text": Texts.t("menu_resume")},
+				{"id": "restart", "text": Texts.t("menu_restart")},
+				{"id": "settings", "text": Texts.t("menu_settings")},
+				{"id": "mainmenu", "text": Texts.t("menu_main")},
+			]
+			if not web:
+				items.append({"id": "quit", "text": Texts.t("menu_quit")})
+			menu.open(Texts.t("menu_pause"), items)
+		"levels":
+			var unlocked := _max_unlocked_level()
+			var items := []
+			for n in range(1, LEVEL_COUNT + 1):
+				var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(_level_path(n)))
+				var text := Texts.t("level_title", {"n": n, "title": d.get("title", "")})
+				items.append({"id": "level_%d" % n, "text": text, "disabled": n > unlocked})
+			items.append({"id": "back", "text": Texts.t("menu_back")})
+			menu.open(Texts.t("menu_levels"), items)
+		"settings":
+			menu.open(Texts.t("menu_settings"), [
+				{"id": "music", "text": _setting_text("music")},
+				{"id": "sfx", "text": _setting_text("sfx")},
+				{"id": "fullscreen", "text": _setting_text("fullscreen")},
+				{"id": "back", "text": Texts.t("menu_back")},
+			], Texts.t("menu_settings_hint"))
+
+
+## Esc в меню: на предыдущий экран; из паузы — обратно в игру; в главном меню ничего не делает.
+func _menu_back() -> void:
+	if menu_stack.size() > 1:
+		menu_stack.pop_back()
+		_open_screen(menu_stack.back())
+	elif in_game:
+		_close_menu()
+
+
+func _on_menu(id: String) -> void:
+	match id:
+		"resume":
+			_close_menu()
+		"restart":
+			_close_menu()
+			_restart_level()
+		"settings", "levels":
+			_open_screen(id)
+		"mainmenu":
+			_show_main_menu()
+		"quit":
+			get_tree().quit()
+		"back":
+			_menu_back()
+		"new":
+			_close_menu()
+			_new_game()
+		"continue":
+			var save := SaveGame.load_game()
+			_close_menu()
+			_begin_game(save["progress"], save["next_level"])
+		"about":
+			menu.hide()
+			story_back_to_menu = true
+			show_pages([{"title": Texts.t("about_title"), "text": Texts.t("about"), "footer": Texts.t("about_footer")}])
+		"music", "sfx":
+			_on_adjust(id, 1)
+		"fullscreen":
+			settings["fullscreen"] = not settings["fullscreen"]
+			_apply_settings()
+			menu.set_text(id, _setting_text(id))
+		_:
+			if id.begins_with("level_"):
+				var n := int(id.substr(6))
+				_close_menu()
+				_begin_game(_progress_before(n), _level_path(n))
+
+
+## ←/→ в настройках: громкость шагами по 10 %.
+func _on_adjust(id: String, delta: int) -> void:
+	if id in ["music", "sfx"]:
+		var v: int = int(settings[id]) + delta * 10
+		if v > 100:
+			v = 0  # Enter по кругу: 100 % → 0 %
+		settings[id] = clampi(v, 0, 100)
+		_apply_settings()
+		menu.set_text(id, _setting_text(id))
+		play_sfx("click")
+
+
+func _setting_text(id: String) -> String:
+	match id:
+		"music":
+			return Texts.t("set_music", {"v": int(settings["music"])})
+		"sfx":
+			return Texts.t("set_sfx", {"v": int(settings["sfx"])})
+		"fullscreen":
+			return Texts.t("set_fullscreen_on" if settings["fullscreen"] else "set_fullscreen_off")
+	return id
+
+
+func _apply_settings() -> void:
+	SaveGame.save_settings(settings)
+	for bus in ["Music", "SFX"]:
+		var idx := AudioServer.get_bus_index(bus)
+		var v: float = settings["music" if bus == "Music" else "sfx"] / 100.0
+		AudioServer.set_bus_mute(idx, v <= 0.0)
+		AudioServer.set_bus_volume_db(idx, linear_to_db(maxf(v, 0.001)))
+	var mode := DisplayServer.WINDOW_MODE_FULLSCREEN if settings["fullscreen"] else DisplayServer.WINDOW_MODE_WINDOWED
+	if DisplayServer.window_get_mode() != mode:
+		DisplayServer.window_set_mode(mode)
+
+
+# --- Начало игры и уровни ------------------------------------------------------
+
+const LEVEL_COUNT := 5
+
+
+static func _level_path(n: int) -> String:
+	return "res://levels/level%d.json" % n
+
+
+## До какого уровня можно дойти: следующий после последнего пройденного.
+func _max_unlocked_level() -> int:
+	var save := SaveGame.load_game()
+	if save.is_empty():
+		return 1
+	var passed: Array = save["progress"].passed
+	return mini(LEVEL_COUNT, (passed.max() if not passed.is_empty() else 0) + 1)
+
+
+## Прогресс, как будто уровни до n пройдены: их заклинания и находки.
+static func _progress_before(n: int) -> Progress:
+	var p := Progress.new()
+	for i in range(1, n):
+		var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(_level_path(i)))
+		p.learn(d.get("spells", []))
+		p.apply_find(i, d.get("find", {}))
+	return p
+
+
+func _new_game() -> void:
+	_begin_game(Progress.new(), LEVEL, true)
+
+
+func _begin_game(p: Progress, path: String, prologue: bool = false) -> void:
+	progress = p
+	in_game = true
+	newest_spells = []
+	dialog.clear()
+	terminal.clear()
+	queue.clear()
+	_queue_running = false
+	if prologue and show_story:
+		show_pages([{"title": Texts.t("prologue_title"), "text": Texts.t("prologue")}])
+	_start_level(path)
 
 
 # --- Ввод --------------------------------------------------------------------
@@ -350,7 +584,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 	if menu.visible:
 		if key.keycode == KEY_ESCAPE:
-			_close_menu()
+			_menu_back()
 		return
 	if story.visible:
 		if key.keycode in [KEY_ENTER, KEY_KP_ENTER]:
@@ -398,11 +632,13 @@ func _cast(line: String) -> void:
 	for d: Dictionary in res["dialog"]:
 		speak(d["speaker"], d["text"])
 	_update_place()
+	play_sfx("spell" if interp.errors_in_row == 0 else "error")
 	if kingdom.cwd != before:
 		_transition(before)
 	if res["open_book"]:
 		room.input_enabled = false
 		book.open(progress.spells, newest_spells)
+		play_sfx("book")
 	room.update_barrier()
 	if level.get("live_room", false) and kingdom.cwd == before:
 		room.refresh()  # факелы и другие предметы меняют вид
@@ -443,9 +679,13 @@ func _check_warnings() -> void:
 
 func _finish_level() -> void:
 	finished = true
+	room.celebrate()
 	var find := kingdom.find
 	var new_spells: Array = find.get("spells", []).filter(func(s): return not progress.knows(s))
 	progress.apply_find(int(level.get("id", 0)), find)
+	play_sfx("find")
+	# Автосохранение: следующий уровень и всё, что Торвальд выучил и нашёл.
+	SaveGame.save(progress, level.get("next", ""))
 	var lines: Array = []
 	if find.has("text"):
 		lines.append({"speaker": find.get("speaker", Interpreter.NARRATOR), "text": find["text"]})
@@ -480,6 +720,7 @@ func _go_next_level() -> void:
 ## Переход в другое место: затемнение, новая комната, проявление.
 func _transition(old: KNode) -> void:
 	room.input_enabled = false
+	play_sfx("door")
 	var tw := create_tween()
 	tw.tween_property(fade, "modulate:a", 1.0, 0.15)
 	await tw.finished
@@ -494,7 +735,8 @@ func _transition(old: KNode) -> void:
 
 
 func _on_trigger_changed(t: Dictionary) -> void:
-	interp.trigger = t.get("spell", "")
+	if interp:  # в главном меню интерпретатора ещё нет
+		interp.trigger = t.get("spell", "")
 	npc_line = 0
 
 
@@ -519,6 +761,7 @@ func _interact() -> void:
 			if not lines.is_empty():
 				speak(npc["id"], lines[npc_line % lines.size()])
 				npc_line += 1
+				play_sfx("talk")
 			# Цель уровня может требовать разговора с персонажем ({"talked": id}).
 			kingdom.talked[npc["id"]] = true
 			if kingdom.is_goal_met() and not finished:
@@ -543,3 +786,67 @@ func _interact() -> void:
 			if not Texts.has(key):
 				key = "look_item"
 			speak(Interpreter.TANENBUM, Texts.t(key, {"title": n.title, "name": n.name}))
+
+
+# --- Звук ----------------------------------------------------------------------
+
+## Короткие звуки действий: файлы в assets/sfx (если файла нет — тишина).
+const SFX := {
+	"step": "res://assets/sfx/step.ogg",
+	"spell": "res://assets/sfx/spell.ogg",
+	"error": "res://assets/sfx/error.ogg",
+	"door": "res://assets/sfx/door.ogg",
+	"find": "res://assets/sfx/find.ogg",
+	"click": "res://assets/sfx/click.ogg",
+	"talk": "res://assets/sfx/talk.ogg",
+	"book": "res://assets/sfx/book.ogg",
+}
+
+var _music: AudioStreamPlayer
+var _music_path := ""
+var _sfx_players: Array[AudioStreamPlayer] = []
+
+
+func _setup_audio() -> void:
+	for bus in ["Music", "SFX"]:
+		if AudioServer.get_bus_index(bus) == -1:
+			AudioServer.add_bus()
+			AudioServer.set_bus_name(AudioServer.bus_count - 1, bus)
+			AudioServer.set_bus_send(AudioServer.bus_count - 1, "Master")
+	_music = AudioStreamPlayer.new()
+	_music.bus = "Music"
+	add_child(_music)
+	for i in 4:
+		var p := AudioStreamPlayer.new()
+		p.bus = "SFX"
+		add_child(p)
+		_sfx_players.append(p)
+	room.stepped.connect(func(): play_sfx("step"))
+
+
+## Фоновая музыка уровня: файл assets/music/levelN.ogg (или поле music в уровне). Нет файла — тишина.
+func play_music(path: String) -> void:
+	if path == _music_path:
+		return
+	_music_path = path
+	_music.stop()
+	if path == "" or not ResourceLoader.exists(path):
+		return
+	var stream = load(path)
+	if stream is AudioStreamOggVorbis:
+		stream.loop = true
+	elif stream is AudioStreamMP3:
+		stream.loop = true
+	_music.stream = stream
+	_music.play()
+
+
+func play_sfx(id: String) -> void:
+	var path: String = SFX.get(id, "")
+	if path == "" or not ResourceLoader.exists(path):
+		return
+	for p in _sfx_players:
+		if not p.playing:
+			p.stream = load(path)
+			p.play()
+			return

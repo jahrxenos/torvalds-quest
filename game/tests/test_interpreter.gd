@@ -31,6 +31,7 @@ func _init() -> void:
 	test_level3()
 	test_level4()
 	test_level5()
+	test_save()
 	print("Тесты: пройдено %d, провалено %d" % [passed, failed])
 	quit(1 if failed else 0)
 
@@ -266,3 +267,16 @@ func test_level5() -> void:
 	check(it.execute("dark torch1")["output"] == ["torch1: светло"], "dark отдельно")
 	it.trigger = ""
 	check(said(it.execute("light torch1")).contains("алтарю"), "light только у алтаря")
+
+
+func test_save() -> void:
+	var SaveScript = preload("res://scripts/save_game.gd")
+	var p = ProgressScript.new()
+	p.learn(["pwd", "ls", "cd", "help"])
+	p.apply_find(1, {"item": "spellbook"})
+	SaveScript.save(p, "res://levels/level2.json")
+	var s: Dictionary = SaveScript.load_game()
+	check(s["next_level"] == "res://levels/level2.json" and s["progress"].knows("help") and 1 in s["progress"].passed, "сохранение и загрузка игры")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveScript.SAVE_PATH))
+	check(not SaveScript.has_save(), "без сохранения — пусто")
+	check(int(SaveScript.load_settings()["music"]) > 0, "настройки по умолчанию")
