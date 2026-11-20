@@ -31,7 +31,7 @@ docs/   — пояснительная записка, дизайн-докуме
 ## Ссылки
 
 - Доска задач: [GitHub Projects](https://github.com/users/jahrxenos/projects/2)
-- Играть в браузере: _будет добавлено_
+- Играть в браузере: https://jahrxenos.github.io/torvalds-quest/
 
 ## Авторы
 
