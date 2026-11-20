@@ -8,6 +8,7 @@ build/
 export/
 *.exe
 *.pck
+!docs/*.pck
 *.zip
 
 # Системное
