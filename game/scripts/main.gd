@@ -1,8 +1,11 @@
 ## Игровой экран: сверху комната, под ним панель диалогов, внизу терминал.
+## В веб-версии под терминалом — клавиатура с буквами: на телефоне вводить
+## заклинания мышкой неудобно, а аппаратной клавиатуры там нет.
 extends Control
 
 const W := 640
 const H := 360
+const KB_H := 188
 const LEVEL := "res://levels/level1.json"
 const C_BORDER := Color("#808080")
 
@@ -13,6 +16,7 @@ var level: Dictionary
 var speakers: Dictionary
 var dialog: LogPanel
 var terminal: TerminalPanel
+var keyboard: KeyboardPanel
 var book: SpellBook
 var room: RoomView
 var menu: ButtonMenu
@@ -77,6 +81,10 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	var debug := Array(args).any(func(a): return a.begins_with("--demo") or a.begins_with("--level="))
 	show_story = "--demo=splash" in args or not Array(args).any(func(a): return a.begins_with("--demo"))
+	if OS.has_feature("web"):
+		# В браузере нет аппаратной клавиатуры: экран с буквами — под основным экраном.
+		get_window().size = Vector2i(W, H + KB_H)
+		keyboard.visible = true
 	if not debug:
 		_show_main_menu()
 		return
@@ -204,6 +212,16 @@ func _build_screen() -> void:
 	terminal.position = Vector2(5, world_h + dialog_h + 3)
 	terminal.size = Vector2(W - 10, UiFont.line_h * TerminalPanel.LINES)
 	add_child(terminal)
+
+	# Экранные кнопки: в браузере это единственный способ набрать заклинание.
+	keyboard = KeyboardPanel.new()
+	keyboard.position = Vector2(0, H)
+	keyboard.size = Vector2(W, KB_H)
+	keyboard.visible = false
+	keyboard.char_typed.connect(_on_kb_char)
+	keyboard.enter_pressed.connect(_on_kb_enter)
+	keyboard.backspace_pressed.connect(_on_kb_backspace)
+	add_child(keyboard)
 
 	book = SpellBook.new()
 	book.size = Vector2(600, H - 12)
@@ -617,6 +635,44 @@ func _unhandled_input(event: InputEvent) -> void:
 		_:
 			if key.unicode >= 32 and not key.ctrl_pressed and not key.alt_pressed:
 				terminal.type_char(char(key.unicode))
+
+
+## Экранные кнопки: буквы, знаки и пробел идут прямо в терминал.
+func _on_kb_char(ch: String) -> void:
+	if menu.visible or story.visible:
+		return
+	terminal.type_char(ch)
+
+
+## «Стереть» с экранной клавиатуры: удаляет последний набранный символ.
+func _on_kb_backspace() -> void:
+	if menu.visible or story.visible:
+		return
+	terminal.backspace()
+
+
+## Enter с экранной клавиатуры: то же, что и обычная Enter.
+func _on_kb_enter() -> void:
+	if menu.visible:
+		return
+	if story.visible:
+		_next_page()
+		return
+	if book.visible:
+		book.hide()
+		room.input_enabled = true
+		return
+	if terminal.typed.strip_edges() == "":
+		if not queue.is_empty():
+			_next_line()
+		elif pending_epilogue:
+			_show_epilogue()
+		elif pending_next != "":
+			_go_next_level()
+		else:
+			_interact()
+	else:
+		_cast(terminal.take_input())
 
 
 func _cast(line: String) -> void:
